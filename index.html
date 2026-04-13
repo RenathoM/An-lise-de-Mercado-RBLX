@@ -220,10 +220,12 @@
 
     <script>
         // ==========================================
-        // CONFIGURAÇÕES GERAIS
+        // CONFIGURAÇÕES GERAIS E CHAVES
         // ==========================================
-        // ATENÇÃO: COLOQUE A URL DA SUA EDGE FUNCTION AQUI
         const SUPABASE_URL = "https://xjgdtwevqrrnorgzelrz.supabase.co/functions/v1/roblox-proxy"; 
+        
+        // COLE SUA CHAVE ANON DO SUPABASE AQUI (Necessário para evitar o Erro 401)
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqZ2R0d2V2cXJybm9yZ3plbHJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMzk3ODAsImV4cCI6MjA4OTYxNTc4MH0.XGmwAxTNWghMRzTDMZvu5IXHmHy_7Xw54RjdPzqa-Dw";
         
         const ASSETS = [
             { id: 1119586118, name: "Blox Fruits", ticker: "BLXF" },
@@ -289,42 +291,54 @@
             }
 
             async fetchApiData() {
-                const dot = document.getElementById('status-dot');
-                const txt = document.getElementById('status-text');
-                try {
-                    dot.classList.remove('online'); dot.style.background = 'yellow';
-                    txt.innerText = "Sincronizando com Supabase...";
+            const dot = document.getElementById('status-dot');
+            const txt = document.getElementById('status-text');
+            try {
+                dot.classList.remove('online'); dot.style.background = 'yellow';
+                txt.innerText = "Sincronizando com Supabase...";
 
-                    const ids = ASSETS.map(a => a.id).join(',');
-                    // Simulação fallback caso a API não esteja configurada pelo usuário ainda:
-                    let realData = [];
-                    if (SUPABASE_URL.includes("SEU_PROJETO")) {
-                         // Fallback Mock se URL não foi trocada
-                         realData = ASSETS.map(a => ({ id: a.id, playing: Math.floor(Math.random() * 100000) + 50000 }));
-                    } else {
-                        const res = await fetch(`${SUPABASE_URL}?universeIds=${ids}`);
-                        if (!res.ok) throw new Error("HTTP error");
-                        const json = await res.json();
-                        realData = json.data;
+                const ids = ASSETS.map(a => a.id).join(',');
+                
+                // Agora enviamos a chave de segurança para o Supabase
+                const res = await fetch(`${SUPABASE_URL}?universeIds=${ids}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Content-Type': 'application/json'
                     }
+                });
 
-                    // Atualiza os Targets
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.error || `HTTP ${res.status}`);
+                }
+                
+                const json = await res.json();
+                const realData = json.data;
+
+                // Atualiza os Targets com os dados reais
+                if (realData && realData.length > 0) {
                     realData.forEach(game => {
                         const data = this.marketData[game.id];
                         if (data) {
-                            if (data.currentCcu === 0) { data.currentCcu = game.playing; data.startCcu = game.playing; }
+                            if (data.currentCcu === 0) { 
+                                data.currentCcu = game.playing; 
+                                data.startCcu = game.playing; 
+                            }
                             data.targetCcu = game.playing;
                         }
                     });
-
-                    dot.classList.add('online'); dot.style.background = '';
-                    txt.innerText = "API Conectada (Live)";
-                } catch (error) {
-                    console.error("API Error:", error);
-                    dot.classList.remove('online'); dot.style.background = 'var(--trade-sell)';
-                    txt.innerText = "Erro de Conexão";
                 }
+
+                dot.classList.add('online'); dot.style.background = '';
+                txt.innerText = "API Conectada (Live)";
+            } catch (error) {
+                console.error("API Error:", error);
+                dot.classList.remove('online'); dot.style.background = 'var(--trade-sell)';
+                txt.innerText = "Erro: " + error.message;
             }
+        }
 
             tickLocal() {
                 ASSETS.forEach(asset => {
