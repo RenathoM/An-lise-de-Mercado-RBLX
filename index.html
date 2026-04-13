@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Atlas Studios | Roblox Market Terminal</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0/dist/chartjs-plugin-annotation.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
@@ -57,8 +58,16 @@
 
         /* Trading Panel */
         .trade-box { background: var(--bg-panel); padding: 20px; border-radius: 10px; flex: 1; border: 1px solid rgba(0, 245, 212, 0.2); display: flex; flex-direction: column; }
-        .ai-prediction { font-size: 0.9rem; padding: 10px; background: rgba(0, 187, 249, 0.05); border-left: 3px solid var(--neptune-blue); margin-bottom: 15px; margin-top: 15px; transition: 0.3s; flex: 1; }
+        .ai-prediction { font-size: 0.9rem; padding: 10px; background: rgba(0, 187, 249, 0.05); border-left: 3px solid var(--neptune-blue); margin-bottom: 15px; margin-top: 15px; transition: 0.3s; }
         
+        .custom-predict-box { background: rgba(0,0,0,0.3); border: 1px solid rgba(123, 140, 158, 0.2); padding: 12px; border-radius: 8px; margin-bottom: 15px; }
+        .custom-predict-box label { font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 8px; }
+        .predict-inputs { display: flex; gap: 10px; }
+        .predict-inputs input { background: var(--bg-deep); border: 1px solid var(--text-muted); color: white; padding: 8px; border-radius: 5px; flex: 1; outline: none; }
+        .predict-inputs input:focus { border-color: var(--neptune-cyan); }
+        .predict-inputs button { background: transparent; border: 1px solid var(--neptune-cyan); color: var(--neptune-cyan); padding: 8px 15px; border-radius: 5px; cursor: pointer; transition: 0.2s; font-weight: bold; }
+        .predict-inputs button:hover { background: var(--neptune-cyan); color: var(--bg-deep); }
+
         .btn { width: 100%; padding: 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 1rem; }
         .btn-buy { background: var(--neptune-cyan); color: var(--bg-deep); }
         .btn-buy:hover { box-shadow: 0 0 15px var(--neptune-cyan); }
@@ -78,11 +87,20 @@
         .act-sell { color: var(--alert-red); font-weight: bold; }
         .act-hold { color: var(--text-muted); font-weight: bold; }
 
-        /* Notifications & Modals */
+        /* Toggles & Modals */
+        .switch-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background: var(--bg-deep); border-radius: 5px; }
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--text-muted); transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--neptune-cyan); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-modal); backdrop-filter: blur(5px); z-index: 1000; justify-content: center; align-items: center; }
         .modal.active { display: flex; }
         .modal-content { background: var(--bg-panel); padding: 30px; border-radius: 10px; width: 400px; border: 1px solid var(--neptune-blue); position: relative; }
         .close-modal { position: absolute; top: 15px; right: 15px; cursor: pointer; color: var(--text-muted); font-size: 1.2rem; }
+        
         #toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 9999; }
         .toast { background: var(--bg-panel); border-left: 4px solid var(--neptune-cyan); padding: 15px 20px; border-radius: 5px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); color: #fff; animation: slideIn 0.3s ease-out; display: flex; align-items: center; gap: 15px; }
         .toast.sell-alert { border-left-color: var(--alert-red); }
@@ -95,7 +113,7 @@
         <div class="logo">Atlas <span>Studios</span></div>
         <div class="nav-item active"><i class="fas fa-chart-line"></i> Market Terminal</div>
         <div class="nav-item"><i class="fas fa-wallet"></i> My Portfolio</div>
-        <div class="nav-item"><i class="fas fa-cog"></i> Settings</div>
+        <div class="nav-item" onclick="openModal('settingsModal')"><i class="fas fa-cog"></i> Settings</div>
         
         <div class="login-btn-side" onclick="openModal('loginModal')"><i class="fas fa-user"></i> Login</div>
     </div>
@@ -128,9 +146,10 @@
             <div class="chart-section">
                 <div class="chart-container">
                     <div class="chart-header">
-                        <h3>Volume Comparison (Blue Chips)</h3>
+                        <h3>Volume Analytics & AI Forecast</h3>
                         <div class="timeframes" id="timeframe-buttons">
-                            <button class="active" data-time="1H">1H</button>
+                            <button class="active" data-time="1M">1M</button>
+                            <button data-time="1H">1H</button>
                             <button data-time="1D">1D</button>
                             <button data-time="1W">1W</button>
                         </div>
@@ -144,12 +163,20 @@
             <div class="trade-section">
                 <div class="trade-box" id="dynamic-trade-box">
                     <h3>Interactive Terminal</h3>
-                    <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 5px;">Selecione um ativo na tabela abaixo para operar.</div>
                     
-                    <h2 id="trade-asset-title" style="margin-top: 15px; color: var(--neptune-cyan);">Blox Fruits ($BLXF)</h2>
+                    <h2 id="trade-asset-title" style="margin-top: 10px; color: var(--neptune-cyan);">Blox Fruits ($BLXF)</h2>
                     
                     <div class="ai-prediction" id="trade-ai-pred">
                         <strong><i class="fas fa-brain"></i> Atlas AI Analysis:</strong> Tendência de ALTA forte. Recomendação de entrada imediata.
+                    </div>
+
+                    <div class="custom-predict-box">
+                        <label><i class="fas fa-clock"></i> Previsão Específica de Margem (IA)</label>
+                        <div class="predict-inputs">
+                            <input type="time" id="target-time">
+                            <button onclick="predictCustomTime()"><i class="fas fa-bolt"></i> Prever</button>
+                        </div>
+                        <div id="predict-result" style="margin-top: 10px; font-size: 0.85rem; display: none;"></div>
                     </div>
                     
                     <button class="btn btn-buy" onclick="executeDynamicTrade('BUY')">COMPRAR POSIÇÃO</button>
@@ -176,6 +203,21 @@
         </div>
     </div>
 
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <i class="fas fa-times close-modal" onclick="closeModal('settingsModal')"></i>
+            <h2>Configurações do Gráfico</h2>
+            <div class="switch-wrapper">
+                <span>Linha de Previsão IA</span>
+                <label class="switch"><input type="checkbox" id="toggleAiLine" checked onchange="toggleChartFeatures()"><span class="slider"></span></label>
+            </div>
+            <div class="switch-wrapper">
+                <span>Marcadores de Operação (Buy/Sell)</span>
+                <label class="switch"><input type="checkbox" id="toggleMarkers" checked onchange="toggleChartFeatures()"><span class="slider"></span></label>
+            </div>
+        </div>
+    </div>
+
     <div id="loginModal" class="modal">
         <div class="modal-content">
             <i class="fas fa-times close-modal" onclick="closeModal('loginModal')"></i>
@@ -187,7 +229,7 @@
     <div id="toast-container"></div>
 
     <script>
-        // Banco de Dados Top 20 Ativos Roblox
+        // Banco de Dados Top 20
         const top20Assets = [
             { name: "Blox Fruits", ticker: "BLXF", ccu: 845230, trend: 4.2 },
             { name: "Brookhaven RP", ticker: "BRKH", ccu: 620100, trend: 1.1 },
@@ -212,24 +254,21 @@
         ];
 
         let currentActiveTicker = "BLXF";
+        let activeAssetData = top20Assets[0];
+        let lastBuyPrice = null; // Armazena o valor da compra para calcular lucro
+        let chartAnnotations = {}; // Armazena marcadores do gráfico
 
-        // Gerar Tabela Dinâmica
+        // Renderizar Tabela
         function renderMarketTable() {
             const tbody = document.getElementById('market-tbody');
             tbody.innerHTML = '';
-
             top20Assets.forEach(asset => {
                 const tr = document.createElement('tr');
                 tr.onclick = () => selectAssetForTrade(asset);
-                
-                // Formatação de Cores
                 const trendColor = asset.trend > 0 ? 'var(--neptune-cyan)' : (asset.trend < 0 ? 'var(--alert-red)' : 'var(--text-muted)');
                 const trendIcon = asset.trend > 0 ? 'fa-arrow-up' : (asset.trend < 0 ? 'fa-arrow-down' : 'fa-minus');
-                
-                let aiAction = "HOLD";
-                let actionClass = "act-hold";
-                if (asset.trend > 3) { aiAction = "BUY"; actionClass = "act-buy"; }
-                if (asset.trend < -3) { aiAction = "SELL"; actionClass = "act-sell"; }
+                let aiAction = asset.trend > 3 ? "BUY" : (asset.trend < -3 ? "SELL" : "HOLD");
+                let actionClass = asset.trend > 3 ? "act-buy" : (asset.trend < -3 ? "act-sell" : "act-hold");
 
                 tr.innerHTML = `
                     <td>${asset.name} <span class="ticker-badge">${asset.ticker}</span></td>
@@ -242,103 +281,170 @@
             });
         }
 
-        // Lógica de Seleção para o Painel de Trade
         function selectAssetForTrade(asset) {
             currentActiveTicker = asset.ticker;
+            activeAssetData = asset;
             document.getElementById('trade-asset-title').innerText = `${asset.name} ($${asset.ticker})`;
             
             const predBox = document.getElementById('trade-ai-pred');
             if (asset.trend > 3) {
-                predBox.innerHTML = `<strong><i class="fas fa-brain"></i> IA:</strong> Tendência de ALTA forte. Recomendação de entrada imediata em $${asset.ticker}.`;
+                predBox.innerHTML = `<strong><i class="fas fa-brain"></i> IA:</strong> Tendência de ALTA forte. Recomendação de entrada imediata.`;
                 predBox.style.borderLeftColor = 'var(--neptune-cyan)';
             } else if (asset.trend < -3) {
-                predBox.innerHTML = `<strong><i class="fas fa-brain"></i> IA:</strong> Tendência de BAIXA. Recomendada liquidação de posições de $${asset.ticker}.`;
+                predBox.innerHTML = `<strong><i class="fas fa-brain"></i> IA:</strong> Tendência de BAIXA. Liquidação recomendada.`;
                 predBox.style.borderLeftColor = 'var(--alert-red)';
             } else {
-                predBox.innerHTML = `<strong><i class="fas fa-brain"></i> IA:</strong> Mercado lateralizado. HOLD recomendado para $${asset.ticker}.`;
+                predBox.innerHTML = `<strong><i class="fas fa-brain"></i> IA:</strong> Mercado lateral. HOLD recomendado.`;
                 predBox.style.borderLeftColor = 'var(--text-muted)';
             }
-            
             showToast(`Ativo selecionado: ${asset.ticker}`, 'info');
-            
-            // Highlight na linha da tabela
-            const rows = document.querySelectorAll('#market-tbody tr');
-            rows.forEach(r => r.style.background = 'transparent');
-            event.currentTarget.style.background = 'rgba(0, 245, 212, 0.1)';
         }
 
-        function executeDynamicTrade(type) {
-            if (type === 'BUY') {
-                showToast(`Ordem de COMPRA executada para $${currentActiveTicker}. IA monitorando...`, 'normal');
-            } else {
-                showToast(`Posição $${currentActiveTicker} liquidada com sucesso (SELL).`, 'sell');
-            }
-        }
-
-        // Renderiza a tabela ao carregar a página
         renderMarketTable();
 
-        // Configuração do Gráfico (Chart.js)
-        const ctx = document.getElementById('marketChart').getContext('2d');
-        Chart.defaults.color = '#7b8c9e';
-        Chart.defaults.borderColor = 'rgba(123, 140, 158, 0.1)';
-
+        // Configuração dos Dados do Gráfico com IA Restaurada
         const chartDataSets = {
+            '1M': {
+                labels: ['Agora', '+1m', '+2m', '+3m', '+4m', '+5m'],
+                blxf: [845, null, null, null, null, null],
+                blxfAi: [845, 848, 855, 850, 860, 865], // Previsão
+                adpt: [250, null, null, null, null, null]
+            },
             '1H': {
-                labels: ['14:00', '14:10', '14:20', '14:30', '14:40', '14:50', '15:00'],
-                blxf: [600, 620, 650, 700, 750, 800, 845],
-                adpt: [280, 275, 270, 260, 255, 252, 250] // Adopt Me
+                labels: ['14:00', '14:20', '14:40', 'Agora', '+20m', '+40m'],
+                blxf: [600, 650, 750, 845, null, null],
+                blxfAi: [null, null, null, 845, 890, 920],
+                adpt: [280, 270, 255, 250, null, null]
             },
             '1D': {
-                labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', 'Hoje'],
-                blxf: [450, 200, 280, 500, 750, 850, 845],
-                adpt: [120, 50, 90, 150, 220, 260, 250]
+                labels: ['00:00', '06:00', '12:00', '18:00', 'Agora', '+6h'],
+                blxf: [450, 280, 500, 850, 845, null],
+                blxfAi: [null, null, null, null, 845, 950],
+                adpt: [120, 90, 150, 260, 250, null]
             },
             '1W': {
-                labels: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
-                blxf: [750, 720, 780, 800, 950, 1100, 1050],
-                adpt: [200, 190, 210, 220, 300, 350, 320]
+                labels: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom (Hoje)', 'Próx Seg'],
+                blxf: [750, 720, 780, 800, 950, 1100, 1050, null],
+                blxfAi: [null, null, null, null, null, null, 1050, 1150],
+                adpt: [200, 190, 210, 220, 300, 350, 320, null]
             }
         };
 
-        const marketChart = new Chart(ctx, {
+        const ctx = document.getElementById('marketChart').getContext('2d');
+        Chart.defaults.color = '#7b8c9e';
+        
+        let marketChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: chartDataSets['1H'].labels,
+                labels: chartDataSets['1M'].labels,
                 datasets: [
-                    { label: '$BLXF (Blox Fruits)', data: chartDataSets['1H'].blxf, borderColor: '#00f5d4', tension: 0.4, borderWidth: 2 },
-                    { label: '$ADPT (Adopt Me)', data: chartDataSets['1H'].adpt, borderColor: '#ff0054', tension: 0.4, borderWidth: 2 }
+                    { label: 'Real Volume', data: chartDataSets['1M'].blxf, borderColor: '#00f5d4', tension: 0.4, borderWidth: 2 },
+                    { label: 'AI Forecast', data: chartDataSets['1M'].blxfAi, borderColor: 'rgba(0, 245, 212, 0.5)', borderDash: [5, 5], tension: 0.4, borderWidth: 2 }
                 ]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'top' } },
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' },
+                    annotation: { annotations: chartAnnotations } // Plugin gerenciando marcadores
+                },
                 scales: { y: { beginAtZero: false } }
             }
         });
 
-        // Lógica de Troca de Tempo
-        const timeButtons = document.querySelectorAll('.timeframes button');
-        timeButtons.forEach(btn => {
+        // Troca de Escala de Tempo
+        document.querySelectorAll('.timeframes button').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                timeButtons.forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.timeframes button').forEach(b => b.classList.remove('active'));
                 e.target.classList.add('active');
-                
                 const time = e.target.getAttribute('data-time');
-                const newData = chartDataSets[time];
-                
-                marketChart.data.labels = newData.labels;
-                marketChart.data.datasets[0].data = newData.blxf;
-                marketChart.data.datasets[1].data = newData.adpt;
+                marketChart.data.labels = chartDataSets[time].labels;
+                marketChart.data.datasets[0].data = chartDataSets[time].blxf;
+                marketChart.data.datasets[1].data = chartDataSets[time].blxfAi;
                 marketChart.update();
             });
         });
 
-        // Modais e Toasts
+        // Configurações de Toggle no Gráfico
+        function toggleChartFeatures() {
+            const showAi = document.getElementById('toggleAiLine').checked;
+            const showMarkers = document.getElementById('toggleMarkers').checked;
+            
+            marketChart.data.datasets[1].hidden = !showAi;
+            marketChart.options.plugins.annotation.annotations = showMarkers ? chartAnnotations : {};
+            marketChart.update();
+        }
+
+        // Lógica de Operação com Marcadores no Gráfico
+        function executeDynamicTrade(type) {
+            const now = new Date();
+            const timeStr = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+            const currentPrice = activeAssetData.ccu;
+
+            if (type === 'BUY') {
+                lastBuyPrice = currentPrice;
+                const id = `buy-${Date.now()}`;
+                
+                // Adiciona linha vertical no gráfico para marcar a compra
+                chartAnnotations[id] = {
+                    type: 'line', xMin: 'Agora', xMax: 'Agora',
+                    borderColor: 'var(--neptune-cyan)', borderWidth: 2, borderDash: [3, 3],
+                    label: { display: true, content: `BUY: ${timeStr}`, backgroundColor: 'var(--neptune-cyan)', color: '#000' }
+                };
+                
+                showToast(`COMPRA: $${currentActiveTicker} registrada às ${timeStr}. Posição aberta no gráfico.`, 'normal');
+            } else {
+                if (!lastBuyPrice) return showToast('Nenhuma posição de compra ativa para calcular lucro.', 'sell');
+                
+                const profitPercent = (((currentPrice - lastBuyPrice) / lastBuyPrice) * 100).toFixed(2);
+                const profitColor = profitPercent >= 0 ? 'var(--neptune-cyan)' : 'var(--alert-red)';
+                const id = `sell-${Date.now()}`;
+
+                // Adiciona marcador de venda
+                chartAnnotations[id] = {
+                    type: 'line', xMin: 'Agora', xMax: 'Agora',
+                    borderColor: profitColor, borderWidth: 2, borderDash: [3, 3],
+                    label: { display: true, content: `SELL: ${profitPercent}%`, backgroundColor: profitColor, color: '#fff', position: 'end' }
+                };
+
+                showToast(`VENDA: Posição $${currentActiveTicker} liquidada às ${timeStr}. Lucro: ${profitPercent}%`, profitPercent >= 0 ? 'normal' : 'sell');
+                lastBuyPrice = null; // Reseta após venda
+            }
+
+            if(document.getElementById('toggleMarkers').checked) {
+                marketChart.options.plugins.annotation.annotations = chartAnnotations;
+                marketChart.update();
+            }
+        }
+
+        // Previsor de Margem Específica (Feature Nova)
+        function predictCustomTime() {
+            const targetTime = document.getElementById('target-time').value;
+            const resultBox = document.getElementById('predict-result');
+            
+            if (!targetTime) {
+                resultBox.style.display = 'block';
+                resultBox.style.color = 'var(--alert-red)';
+                resultBox.innerHTML = 'Por favor, insira um horário válido.';
+                return;
+            }
+
+            // Simulação lógica de margem: baseia-se na 'trend' atual do ativo multiplicada por um fator aleatório da IA
+            const baseTrend = activeAssetData.trend;
+            const volatility = (Math.random() * 2) + 0.5; // Fator simulado do backend
+            const predictedMargin = (baseTrend * volatility).toFixed(2);
+            
+            const color = predictedMargin >= 0 ? 'var(--neptune-cyan)' : 'var(--alert-red)';
+            const icon = predictedMargin >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+
+            resultBox.style.display = 'block';
+            resultBox.style.color = color;
+            resultBox.innerHTML = `<strong>Análise para as ${targetTime}:</strong> Se comprar agora, a estimativa de variação é de <i class="fas ${icon}"></i> <strong>${predictedMargin}%</strong> com base no fluxo atual.`;
+        }
+
+        // Utils
         function openModal(id) { document.getElementById(id).classList.add('active'); }
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-        
         function showToast(message, type = 'normal') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -346,7 +452,7 @@
             const icon = type === 'sell' ? '<i class="fas fa-exclamation-triangle"></i>' : '<i class="fas fa-check-circle"></i>';
             toast.innerHTML = `${icon} <div>${message}</div>`;
             container.appendChild(toast);
-            setTimeout(() => { toast.remove(); }, 4000);
+            setTimeout(() => { toast.remove(); }, 5000);
         }
     </script>
 </body>
