@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Atlas Studios | Roblox Market Terminal</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0/dist/chartjs-plugin-annotation.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -256,8 +255,56 @@
 
         let currentActiveTicker = "BLXF";
         let activeAssetData = top20Assets[0];
-        let lastBuyPrice = null; // Armazena o valor da compra para calcular lucro
-        let chartAnnotations = {}; // Armazena marcadores do gráfico
+        let currentTimeframe = "1M";
+        
+        // NOVO: Armazena o preço de compra e os marcadores de forma INDEPENDENTE por ativo
+        let lastBuyPrices = {}; 
+        let assetAnnotations = {}; 
+
+        // Configuração Dinâmica dos Timeframes (Simulando API)
+        const timeframesConfig = {
+            '1M': { labels: ['Agora', '+1m', '+2m', '+3m', '+4m', '+5m'], historyPoints: 1 },
+            '1H': { labels: ['-40m', '-20m', 'Agora', '+20m', '+40m'], historyPoints: 3 },
+            '1D': { labels: ['-18h', '-12h', '-6h', 'Agora', '+6h', '+12h'], historyPoints: 4 },
+            '1W': { labels: ['-4d', '-3d', '-2d', '-1d', 'Hoje', '+1d', '+2d'], historyPoints: 5 }
+        };
+
+        // Cache para simular que a "API" não muda aleatoriamente a cada clique
+        const chartDataCache = {};
+
+        // Simulador de resposta de API baseada nos dados do ativo
+        function fetchAssetChartData(asset, timeframe) {
+            const cacheKey = `${asset.ticker}-${timeframe}`;
+            if (chartDataCache[cacheKey]) return chartDataCache[cacheKey];
+
+            const config = timeframesConfig[timeframe];
+            const totalPoints = config.labels.length;
+            const hPoints = config.historyPoints;
+            
+            let realData = [];
+            let aiData = [];
+            
+            // Simula o passado com base no CCU e na tendência
+            let startVal = asset.ccu * (1 - (asset.trend / 100));
+            let step = (asset.ccu - startVal) / (hPoints > 1 ? hPoints - 1 : 1);
+            
+            for(let i=0; i<totalPoints; i++) {
+                if (i < hPoints - 1) { // Passado
+                    realData.push(Math.round(startVal + (step * i) + (Math.random() * asset.ccu * 0.05)));
+                    aiData.push(null);
+                } else if (i === hPoints - 1) { // Presente ("Agora")
+                    realData.push(asset.ccu);
+                    aiData.push(asset.ccu);
+                } else { // Futuro (Previsão IA)
+                    realData.push(null);
+                    let projection = asset.ccu + (asset.ccu * (asset.trend / 100) * (i - hPoints + 1));
+                    aiData.push(Math.round(projection + (Math.random() * asset.ccu * 0.02)));
+                }
+            }
+            
+            chartDataCache[cacheKey] = { real: realData, ai: aiData, labels: config.labels };
+            return chartDataCache[cacheKey];
+        }
 
         // Renderizar Tabela
         function renderMarketTable() {
@@ -298,71 +345,60 @@
                 predBox.innerHTML = `<strong><i class="fas fa-brain"></i> IA:</strong> Mercado lateral. HOLD recomendado.`;
                 predBox.style.borderLeftColor = 'var(--text-muted)';
             }
+            
             showToast(`Ativo selecionado: ${asset.ticker}`, 'info');
+            
+            // NOVO: Atualiza o gráfico com os dados exclusivos deste ativo
+            updateChartDisplay();
         }
 
-        renderMarketTable();
-
-        // Configuração dos Dados do Gráfico com IA Restaurada
-        const chartDataSets = {
-            '1M': {
-                labels: ['Agora', '+1m', '+2m', '+3m', '+4m', '+5m'],
-                blxf: [845, null, null, null, null, null],
-                blxfAi: [845, 848, 855, 850, 860, 865], // Previsão
-                adpt: [250, null, null, null, null, null]
-            },
-            '1H': {
-                labels: ['14:00', '14:20', '14:40', 'Agora', '+20m', '+40m'],
-                blxf: [600, 650, 750, 845, null, null],
-                blxfAi: [null, null, null, 845, 890, 920],
-                adpt: [280, 270, 255, 250, null, null]
-            },
-            '1D': {
-                labels: ['00:00', '06:00', '12:00', '18:00', 'Agora', '+6h'],
-                blxf: [450, 280, 500, 850, 845, null],
-                blxfAi: [null, null, null, null, 845, 950],
-                adpt: [120, 90, 150, 260, 250, null]
-            },
-            '1W': {
-                labels: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom (Hoje)', 'Próx Seg'],
-                blxf: [750, 720, 780, 800, 950, 1100, 1050, null],
-                blxfAi: [null, null, null, null, null, null, 1050, 1150],
-                adpt: [200, 190, 210, 220, 300, 350, 320, null]
-            }
-        };
-
+        // Inicialização do Gráfico
         const ctx = document.getElementById('marketChart').getContext('2d');
         Chart.defaults.color = '#7b8c9e';
         
         let marketChart = new Chart(ctx, {
             type: 'line',
-            data: {
-                labels: chartDataSets['1M'].labels,
-                datasets: [
-                    { label: 'Real Volume', data: chartDataSets['1M'].blxf, borderColor: '#00f5d4', tension: 0.4, borderWidth: 2 },
-                    { label: 'AI Forecast', data: chartDataSets['1M'].blxfAi, borderColor: 'rgba(0, 245, 212, 0.5)', borderDash: [5, 5], tension: 0.4, borderWidth: 2 }
-                ]
-            },
+            data: { labels: [], datasets: [
+                { label: 'Real Volume', data: [], borderColor: '#00f5d4', tension: 0.4, borderWidth: 2 },
+                { label: 'AI Forecast', data: [], borderColor: 'rgba(0, 245, 212, 0.5)', borderDash: [5, 5], tension: 0.4, borderWidth: 2 }
+            ]},
             options: {
                 responsive: true, maintainAspectRatio: false,
                 plugins: {
                     legend: { position: 'top' },
-                    annotation: { annotations: chartAnnotations } // Plugin gerenciando marcadores
+                    annotation: { annotations: {} }
                 },
                 scales: { y: { beginAtZero: false } }
             }
         });
+
+        // Função para atualizar visualmente o gráfico baseado no ativo e tempo selecionados
+        function updateChartDisplay() {
+            const data = fetchAssetChartData(activeAssetData, currentTimeframe);
+            
+            marketChart.data.labels = data.labels;
+            marketChart.data.datasets[0].data = data.real;
+            marketChart.data.datasets[0].label = `Real Volume (${currentActiveTicker})`;
+            marketChart.data.datasets[1].data = data.ai;
+            marketChart.data.datasets[1].label = `AI Forecast (${currentActiveTicker})`;
+            
+            // Aplica apenas os marcadores deste ativo específico
+            if(document.getElementById('toggleMarkers').checked) {
+                marketChart.options.plugins.annotation.annotations = assetAnnotations[currentActiveTicker] || {};
+            } else {
+                marketChart.options.plugins.annotation.annotations = {};
+            }
+            
+            marketChart.update();
+        }
 
         // Troca de Escala de Tempo
         document.querySelectorAll('.timeframes button').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.timeframes button').forEach(b => b.classList.remove('active'));
                 e.target.classList.add('active');
-                const time = e.target.getAttribute('data-time');
-                marketChart.data.labels = chartDataSets[time].labels;
-                marketChart.data.datasets[0].data = chartDataSets[time].blxf;
-                marketChart.data.datasets[1].data = chartDataSets[time].blxfAi;
-                marketChart.update();
+                currentTimeframe = e.target.getAttribute('data-time');
+                updateChartDisplay(); // Atualiza a "API" com o novo timeframe
             });
         });
 
@@ -372,53 +408,56 @@
             const showMarkers = document.getElementById('toggleMarkers').checked;
             
             marketChart.data.datasets[1].hidden = !showAi;
-            marketChart.options.plugins.annotation.annotations = showMarkers ? chartAnnotations : {};
+            marketChart.options.plugins.annotation.annotations = showMarkers ? (assetAnnotations[currentActiveTicker] || {}) : {};
             marketChart.update();
         }
 
-        // Lógica de Operação com Marcadores no Gráfico
+        // Lógica de Operação com Marcadores independentes por Ativo
         function executeDynamicTrade(type) {
             const now = new Date();
             const timeStr = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
             const currentPrice = activeAssetData.ccu;
 
+            if (!assetAnnotations[currentActiveTicker]) {
+                assetAnnotations[currentActiveTicker] = {};
+            }
+
             if (type === 'BUY') {
-                lastBuyPrice = currentPrice;
+                lastBuyPrices[currentActiveTicker] = currentPrice; // Salva preço para este ativo
                 const id = `buy-${Date.now()}`;
                 
-                // Adiciona linha vertical no gráfico para marcar a compra
-                chartAnnotations[id] = {
+                assetAnnotations[currentActiveTicker][id] = {
                     type: 'line', xMin: 'Agora', xMax: 'Agora',
                     borderColor: 'var(--neptune-cyan)', borderWidth: 2, borderDash: [3, 3],
                     label: { display: true, content: `BUY: ${timeStr}`, backgroundColor: 'var(--neptune-cyan)', color: '#000' }
                 };
                 
-                showToast(`COMPRA: $${currentActiveTicker} registrada às ${timeStr}. Posição aberta no gráfico.`, 'normal');
+                showToast(`COMPRA: $${currentActiveTicker} registrada às ${timeStr}.`, 'normal');
             } else {
-                if (!lastBuyPrice) return showToast('Nenhuma posição de compra ativa para calcular lucro.', 'sell');
+                const buyPrice = lastBuyPrices[currentActiveTicker];
+                if (!buyPrice) return showToast(`Nenhuma posição de compra ativa em ${currentActiveTicker}.`, 'sell');
                 
-                const profitPercent = (((currentPrice - lastBuyPrice) / lastBuyPrice) * 100).toFixed(2);
+                const profitPercent = (((currentPrice - buyPrice) / buyPrice) * 100).toFixed(2);
                 const profitColor = profitPercent >= 0 ? 'var(--neptune-cyan)' : 'var(--alert-red)';
                 const id = `sell-${Date.now()}`;
 
-                // Adiciona marcador de venda
-                chartAnnotations[id] = {
+                assetAnnotations[currentActiveTicker][id] = {
                     type: 'line', xMin: 'Agora', xMax: 'Agora',
                     borderColor: profitColor, borderWidth: 2, borderDash: [3, 3],
                     label: { display: true, content: `SELL: ${profitPercent}%`, backgroundColor: profitColor, color: '#fff', position: 'end' }
                 };
 
-                showToast(`VENDA: Posição $${currentActiveTicker} liquidada às ${timeStr}. Lucro: ${profitPercent}%`, profitPercent >= 0 ? 'normal' : 'sell');
-                lastBuyPrice = null; // Reseta após venda
+                showToast(`VENDA: Posição $${currentActiveTicker} liquidada. Lucro: ${profitPercent}%`, profitPercent >= 0 ? 'normal' : 'sell');
+                lastBuyPrices[currentActiveTicker] = null; // Reseta posição deste ativo
             }
 
             if(document.getElementById('toggleMarkers').checked) {
-                marketChart.options.plugins.annotation.annotations = chartAnnotations;
+                marketChart.options.plugins.annotation.annotations = assetAnnotations[currentActiveTicker];
                 marketChart.update();
             }
         }
 
-        // Previsor de Margem Específica (Feature Nova)
+        // Previsor de Margem Específica
         function predictCustomTime() {
             const targetTime = document.getElementById('target-time').value;
             const resultBox = document.getElementById('predict-result');
@@ -430,9 +469,8 @@
                 return;
             }
 
-            // Simulação lógica de margem: baseia-se na 'trend' atual do ativo multiplicada por um fator aleatório da IA
             const baseTrend = activeAssetData.trend;
-            const volatility = (Math.random() * 2) + 0.5; // Fator simulado do backend
+            const volatility = (Math.random() * 2) + 0.5;
             const predictedMargin = (baseTrend * volatility).toFixed(2);
             
             const color = predictedMargin >= 0 ? 'var(--neptune-cyan)' : 'var(--alert-red)';
@@ -440,7 +478,7 @@
 
             resultBox.style.display = 'block';
             resultBox.style.color = color;
-            resultBox.innerHTML = `<strong>Análise para as ${targetTime}:</strong> Se comprar agora, a estimativa de variação é de <i class="fas ${icon}"></i> <strong>${predictedMargin}%</strong> com base no fluxo atual.`;
+            resultBox.innerHTML = `<strong>Análise de ${currentActiveTicker} às ${targetTime}:</strong> Se comprar agora, estimativa de <i class="fas ${icon}"></i> <strong>${predictedMargin}%</strong> baseada no fluxo.`;
         }
 
         // Utils
@@ -455,6 +493,10 @@
             container.appendChild(toast);
             setTimeout(() => { toast.remove(); }, 5000);
         }
+
+        // Inicia a aplicação populando a tabela e o primeiro gráfico
+        renderMarketTable();
+        updateChartDisplay();
     </script>
 </body>
 </html>
