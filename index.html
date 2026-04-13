@@ -69,6 +69,18 @@
         .geo-bar { width: 100%; height: 6px; background: var(--bg-elevated); border-radius: 3px; margin-top: 5px; overflow: hidden; display: flex; }
         .geo-segment { height: 100%; }
 
+        /* NOVO: Order Book e Portfolio */
+        .order-book { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; font-size: 11px; margin-top: 10px; }
+        .book-row { display: flex; justify-content: space-between; padding: 4px; position: relative; }
+        .book-bg-sell { position: absolute; right: 0; top: 0; height: 100%; background: rgba(239, 68, 68, 0.15); z-index: 0; }
+        .book-bg-buy { position: absolute; left: 0; top: 0; height: 100%; background: rgba(16, 185, 129, 0.15); z-index: 0; }
+        .book-text { position: relative; z-index: 1; display: flex; width: 100%; justify-content: space-between; }
+        
+        .portfolio-box { border: 1px dashed var(--border); padding: 12px; border-radius: 6px; margin-top: 15px; background: rgba(255,255,255,0.02); }
+        .portfolio-metric { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; }
+        .val-profit { color: var(--buy); font-weight: bold; }
+        .val-loss { color: var(--sell); font-weight: bold; }
+
         /* Toast */
         #toast { position: fixed; bottom: 20px; right: 20px; background: var(--bg-elevated); border-left: 4px solid var(--cyan); padding: 15px 20px; border-radius: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transform: translateX(150%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 999; display: flex; align-items: center; gap: 12px; }
         #toast.show { transform: translateX(0); }
@@ -147,29 +159,29 @@
                     <button class="btn btn-buy" onclick="executeTrade('LONG')">COMPRAR <span>PROJEÇÃO DE ALTA</span></button>
                     <button class="btn btn-sell" onclick="executeTrade('SHORT')">VENDER <span>PROJEÇÃO DE BAIXA</span></button>
                 </div>
+
+                <div class="portfolio-box">
+                    <div class="portfolio-metric"><span style="color:var(--text-dim)">Posição Aberta:</span> <span id="pos-type">Nenhuma</span></div>
+                    <div class="portfolio-metric"><span style="color:var(--text-dim)">Preço Médio:</span> <span id="pos-entry">0</span></div>
+                    <div class="portfolio-metric"><span style="color:var(--text-dim)">P&L Não Realizado:</span> <span id="pos-pnl" style="color:white">0.00%</span></div>
+                    <button onclick="closePosition()" style="width:100%; margin-top:10px; padding:6px; background:var(--bg-elevated); color:white; border:1px solid var(--border); border-radius:4px; cursor:pointer;">ZERAR POSIÇÃO</button>
+                </div>
             </div>
 
             <div class="section">
-                <div class="panel-header" style="padding: 0 0 15px 0; border: none;">Demografia e Localização (Estimativa)</div>
-                <div style="margin-bottom: 15px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 5px;">
-                        <span style="color:#3b82f6"><i class="fas fa-globe-americas"></i> Américas (45%)</span>
-                        <span style="color:#10b981"><i class="fas fa-globe-europe"></i> Europa (35%)</span>
-                        <span style="color:#f59e0b"><i class="fas fa-globe-asia"></i> Ásia (20%)</span>
-                    </div>
-                    <div class="geo-bar">
-                        <div class="geo-segment" style="width: 45%; background: #3b82f6;"></div>
-                        <div class="geo-segment" style="width: 35%; background: #10b981;"></div>
-                        <div class="geo-segment" style="width: 20%; background: #f59e0b;"></div>
-                    </div>
+                <div class="panel-header" style="padding: 0 0 10px 0; border: none; display:flex; justify-content:space-between;">
+                    <span>Livro de Ofertas (DOM)</span>
+                    <span style="color:var(--text-dim)">Volume</span>
                 </div>
-                <p style="font-size: 11px; color: var(--text-dim); line-height: 1.5;">*Dados geográficos baseados em heurística de fuso horário em relação aos picos de jogadores simultâneos no servidor AWS.</p>
+                <div id="order-book" class="order-book">
+                    <!-- Gerado via JS -->
+                </div>
             </div>
             
             <div class="section" style="flex: 1;">
                 <div class="panel-header" style="padding: 0 0 15px 0; border: none;">Registro de Operações</div>
                 <div id="trade-log" style="display: flex; flex-direction: column; gap: 8px; font-size: 11px;">
-                    <div style="color: var(--text-dim); text-align: center; padding: 20px;">Nenhuma operação aberta no ativo.</div>
+                    <div style="color: var(--text-dim); text-align: center; padding: 20px;" id="empty-log">Nenhuma operação aberta no ativo.</div>
                 </div>
             </div>
         </div>
@@ -197,9 +209,13 @@
         let marketData = {};
         let rateLimitCooldown = false;
         
+        // NOVO: Controle de Posições do Usuário
+        let userPortfolio = {};
+
         // Estrutura de dados com buffer longo para suavidade
         ASSETS.forEach(a => {
             marketData[a.id] = { target: 0, current: 0, start: 0, history: new Array(60).fill(null) };
+            userPortfolio[a.id] = { type: null, entryPrice: 0 };
         });
 
         // ==========================================
@@ -258,29 +274,45 @@
         async function fetchRealData() {
             if(rateLimitCooldown) return;
 
-            try {
-                // AGRUPAMENTO: Um único pedido para todos os IDs. Salva do erro 429.
-                const idsString = ASSETS.map(a => a.id).join(',');
-                
-                const res = await fetch(`${SUPABASE_URL}?universeIds=${idsString}`, {
-                    headers: { 'Authorization': `Bearer ${SUPABASE_KEY}`, 'apikey': SUPABASE_KEY }
-                });
+            const CHUNK_SIZE = 5; // Tamanho seguro para a API do Roblox
+            const DELAY_BETWEEN_CHUNKS = 2000; // 2 segundos entre fatias
 
-                if (res.status === 429) {
-                    throw new Error("429");
-                }
-                
-                const json = await res.json();
-                
-                if (json.data) {
-                    json.data.forEach(game => {
-                        if(marketData[game.id]) {
-                            const md = marketData[game.id];
-                            if(md.target === 0) { md.current = game.playing; md.start = game.playing; }
-                            md.target = game.playing;
-                        }
+            try {
+                // Divide os ativos em pequenos blocos (chunks)
+                for (let i = 0; i < ASSETS.length; i += CHUNK_SIZE) {
+                    const chunk = ASSETS.slice(i, i + CHUNK_SIZE);
+                    const idsString = chunk.map(a => a.id).join(',');
+                    
+                    const res = await fetch(`${SUPABASE_URL}?universeIds=${idsString}`, {
+                        headers: { 'Authorization': `Bearer ${SUPABASE_KEY}`, 'apikey': SUPABASE_KEY }
                     });
-                    document.getElementById('api-status').innerHTML = '<div style="width:8px; height:8px; border-radius:50%; background:var(--buy); box-shadow: 0 0 8px var(--buy);"></div> SISTEMA OPERACIONAL (LIVE)';
+
+                    if (res.status === 429) {
+                        throw new Error("429");
+                    }
+                    
+                    const json = await res.json();
+                    
+                    if (json && json.data) {
+                        // Mapeamento estrito e resiliente
+                        json.data.forEach(game => {
+                            if (game && game.id && marketData[game.id]) {
+                                const md = marketData[game.id];
+                                const currentPlaying = parseInt(game.playing) || 0;
+                                
+                                if (currentPlaying > 0) {
+                                    if(md.target === 0) { md.current = currentPlaying; md.start = currentPlaying; }
+                                    md.target = currentPlaying;
+                                }
+                            }
+                        });
+                        document.getElementById('api-status').innerHTML = '<div style="width:8px; height:8px; border-radius:50%; background:var(--buy); box-shadow: 0 0 8px var(--buy);"></div> SISTEMA OPERACIONAL (LIVE)';
+                    }
+
+                    // Aguarda antes do próximo lote para não estourar o limite (se não for o último lote)
+                    if (i + CHUNK_SIZE < ASSETS.length) {
+                        await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_CHUNKS));
+                    }
                 }
             } catch (error) {
                 if(error.message === "429") {
@@ -308,6 +340,8 @@
                 md.history.shift();
             });
             updateInterface();
+            updateOrderBook(); // Simulador do Livro de Ofertas
+            updatePortfolioView(); // Simulador de P&L
         }, 1000);
 
         // ==========================================
@@ -411,9 +445,15 @@
         }
 
         function executeTrade(type) {
-            const price = document.getElementById('trade-price').innerText;
+            const md = marketData[activeAsset];
+            if(md.current <= 0) return;
+
+            const price = md.current;
+            userPortfolio[activeAsset] = { type: type, entryPrice: price };
+            
             const log = document.getElementById('trade-log');
-            if(log.innerText.includes("Nenhuma operação")) log.innerHTML = '';
+            const emptyLog = document.getElementById('empty-log');
+            if(emptyLog) emptyLog.style.display = 'none';
             
             const color = type === 'LONG' ? 'var(--buy)' : 'var(--sell)';
             const time = new Date().toLocaleTimeString();
@@ -422,10 +462,37 @@
             div.style.padding = '10px';
             div.style.background = 'var(--bg-elevated)';
             div.style.borderLeft = `3px solid ${color}`;
-            div.innerHTML = `<strong>${type}</strong> executado em ${price} <span style="float:right; color:var(--text-dim)">${time}</span>`;
+            div.innerHTML = `<strong>ABERTURA ${type}</strong> @ ${price.toFixed(0)} <span style="float:right; color:var(--text-dim)">${time}</span>`;
             
             log.prepend(div);
-            showToast(`Ordem ${type} preenchida no mercado.`);
+            showToast(`Posição ${type} montada no ativo.`, "info");
+            updatePortfolioView();
+        }
+
+        function closePosition() {
+            const pos = userPortfolio[activeAsset];
+            if(!pos.type) return showToast("Sua mesa não possui posições neste ativo.", "warning");
+
+            const md = marketData[activeAsset];
+            const exitPrice = md.current;
+            const log = document.getElementById('trade-log');
+            const time = new Date().toLocaleTimeString();
+
+            let pnlPct = pos.type === 'LONG' ? ((exitPrice - pos.entryPrice)/pos.entryPrice)*100 : ((pos.entryPrice - exitPrice)/pos.entryPrice)*100;
+            const pnlColor = pnlPct >= 0 ? 'var(--buy)' : 'var(--sell)';
+
+            const div = document.createElement('div');
+            div.style.padding = '10px';
+            div.style.background = 'rgba(255, 255, 255, 0.05)';
+            div.style.border = '1px dashed var(--border)';
+            div.innerHTML = `<strong>LIQUIDAÇÃO DE POSIÇÃO</strong> @ ${exitPrice.toFixed(0)} <br> <span style="color:${pnlColor}">Resultado: ${pnlPct>=0?'+':''}${pnlPct.toFixed(2)}%</span> <span style="float:right; color:var(--text-dim)">${time}</span>`;
+            
+            log.prepend(div);
+            
+            // Reset position
+            userPortfolio[activeAsset] = { type: null, entryPrice: 0 };
+            showToast(`Posição encerrada com sucesso.`);
+            updatePortfolioView();
         }
 
         function showToast(msg, type = "info") {
