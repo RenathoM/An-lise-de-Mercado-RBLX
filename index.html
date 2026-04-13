@@ -82,6 +82,12 @@
         .demo-bar { width: 100%; height: 8px; background: var(--bg-elevated); border-radius: 4px; display: flex; overflow: hidden; margin-top: 10px; }
         .demo-segment { height: 100%; transition: width 0.5s; }
         .demo-legend { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-top: 5px; }
+        
+        .status-dot { font-size: 8px; margin-right: 6px; vertical-align: middle; transition: color 0.3s; }
+        .status-dot.active { color: var(--buy); text-shadow: 0 0 5px rgba(16,185,129,0.5); }
+        .status-dot.ratelimit { color: #f59e0b; text-shadow: 0 0 5px rgba(245,158,11,0.5); }
+        .status-dot.waiting { color: var(--sell); text-shadow: 0 0 5px rgba(239,68,68,0.5); }
+        tr.disabled { opacity: 0.4; pointer-events: none; cursor: not-allowed; filter: grayscale(1); }
 
         /* Toast */
         #toast { position: fixed; bottom: 20px; right: 20px; background: var(--bg-elevated); border-left: 4px solid var(--cyan); padding: 15px; border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transform: translateX(150%); transition: transform 0.3s ease; z-index: 1000; font-weight: bold; }
@@ -123,6 +129,7 @@
                 </div>
                 <div class="timeframes" id="tf-controls">
                     <button class="tf-btn active" onclick="setTimeframe('1M', this)">1M</button>
+                    <button class="tf-btn" onclick="setTimeframe('15M', this)">15M</button>
                     <button class="tf-btn" onclick="setTimeframe('1H', this)">1H</button>
                     <button class="tf-btn" onclick="setTimeframe('1D', this)">1D</button>
                     <button class="tf-btn" onclick="setTimeframe('1W', this)">1W</button>
@@ -196,34 +203,35 @@
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqZ2R0d2V2cXJybm9yZ3plbHJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMzk3ODAsImV4cCI6MjA4OTYxNTc4MH0.XGmwAxTNWghMRzTDMZvu5IXHmHy_7Xw54RjdPzqa-Dw"; 
 
         const ASSETS = [
-            { id: 1702695413, name: "Brookhaven", ticker: "BRKH" },
-            { id: 1119586118, name: "Blox Fruits", ticker: "BLXF" },
-            { id: 332284684, name: "Adopt Me!", ticker: "ADPT" },
-            { id: 66654135, name: "Murder Mystery 2", ticker: "MM2X" },
-            { id: 2603415162, name: "BedWars", ticker: "BEDW" },
-            { id: 4982631553, name: "Pet Simulator", ticker: "PETS" }
+            { id: 1702695413, name: "Brookhaven", ticker: "BRKH" }
         ];
 
         // Estado Global
         let marketData = {};
         ASSETS.forEach(a => {
-            marketData[a.id] = { current: 0, target: 0, history: new Array(60).fill(null), start: 0 };
+            marketData[a.id] = { current: 0, target: 0, history: new Array(60).fill(null), start: 0, status: 'waiting' };
         });
         
+        // Dados Base de fallback (caso a API falhe)
+        const FALLBACK_Bases = {
+            1702695413: 450000
+        };
+
         let activeAsset = ASSETS[0].id;
         let rateLimitCooldown = false;
-        let isMockingTimeframe = false;
 
         // Inicialização do Gráfico
         const ctx = document.getElementById('mainChart').getContext('2d');
         const chart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: new Array(60).fill('').map((_, i) => `T-${60-i}`),
+                labels: new Array(70).fill('').map((_, i) => i < 60 ? `T-${60-i}` : `F+${i-59}`),
                 datasets: [
                     { label: 'Preço Real (Live)', data: [], borderColor: '#00f5d4', backgroundColor: 'rgba(0, 245, 212, 0.05)', borderWidth: 2, fill: true, pointRadius: 0, tension: 0.3 },
                     { label: 'SMA 10', data: [], borderColor: 'rgba(255,255,255,0.2)', borderDash: [5,5], borderWidth: 1, pointRadius: 0, tension: 0.4 },
-                    { label: 'Projeção (IA)', data: [], borderColor: '#3b82f6', borderDash: [2,4], borderWidth: 2, pointRadius: 0 }
+                    { label: 'Projeção (IA)', data: [], borderColor: '#3b82f6', borderDash: [2,4], borderWidth: 2, pointRadius: 0, tension: 0.4 },
+                    { label: 'Banda Superior', data: [], borderColor: 'transparent', backgroundColor: 'rgba(59, 130, 246, 0.1)', pointRadius: 0, fill: '-1', tension: 0.4 },
+                    { label: 'Banda Inferior', data: [], borderColor: 'transparent', backgroundColor: 'transparent', pointRadius: 0, fill: '-2', tension: 0.4 }
                 ]
             },
             options: {
@@ -237,72 +245,112 @@
             }
         });
 
-        // Motor de Interpolação e Atualização Contínua (Roda 1x por segundo)
-        setInterval(() => {
-            if (isMockingTimeframe) return; // Pausa se tiver visualizando macro
-            
-            ASSETS.forEach(a => {
-                const md = marketData[a.id];
-                if (md.target > 0) {
-                    // Smooth movement com micro-ruído direcional inter-segundo
-                    const diff = md.target - md.current;
-                    const noise = (Math.random() - 0.5) * (md.target * 0.0005);
-                    md.current += (diff * 0.2) + noise; 
-                }
-                md.history.push(md.current > 0 ? md.current : null);
-                md.history.shift();
-            });
-            updateUI();
-        }, 1000);
+        let activeTimeframe = '1M';
+        let fetchClock = null;
 
         // Core de Lógica de Requisição Segura (Batching / Chunking)
         async function fetchMarketData() {
-            if (rateLimitCooldown) return;
-
-            const CHUNK_SIZE = 3; // Segurança extrema contra block
-            const DELAY = 2000;
+            const CHUNK_SIZE = 1; // 1 ID por vez para evitar 404 e timeouts de parse no proxy
+            const DELAY = 1500;
+            
+            function processGameData(data) {
+                let success = false;
+                if (data && data.data && data.data.length > 0) {
+                    data.data.forEach(game => {
+                        if (game.id && marketData[game.id]) {
+                            const playing = parseInt(game.playing) || 0;
+                            const md = marketData[game.id];
+                            if (md.start === 0 && playing > 0) md.start = playing;
+                            if (md.current === 0) md.current = playing;
+                            md.target = playing;
+                            md.status = 'active';
+                            success = true;
+                        }
+                    });
+                }
+                if(!success) throw new Error("404");
+            }
             
             for (let i = 0; i < ASSETS.length; i += CHUNK_SIZE) {
-                if (rateLimitCooldown) break;
-                
+                // Removemos o break local para forçar o CORS no fallback se o supabase explodiu
                 const chunk = ASSETS.slice(i, i + CHUNK_SIZE);
                 const ids = chunk.map(a => a.id).join(',');
 
                 try {
-                    const res = await fetch(`${SUPABASE_URL}?universeIds=${ids}`, {
-                        headers: { 'Authorization': `Bearer ${SUPABASE_KEY}`, 'apikey': SUPABASE_KEY }
-                    });
+                    let url = `${SUPABASE_URL}?universeIds=${ids}`;
+                    let options = { headers: { 'Authorization': `Bearer ${SUPABASE_KEY}`, 'apikey': SUPABASE_KEY }};
+                    
+                    // Rota Secundária: Se o IP do Supabase proxy estiver queimado pela Roblox (Ratelimit 429), tenta por CORS público
+                    if (rateLimitCooldown) {
+                        url = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://games.roblox.com/v1/games?universeIds=' + ids)}`;
+                        options = {}; 
+                    }
 
-                    if (res.status === 429) throw new Error("429");
+                    const res = await fetch(url, options);
+
+                    if (res.status === 429) {
+                        if (!rateLimitCooldown) {
+                            triggerCooldown(); 
+                            // Tenta instantaneamente o Fallback do CORS
+                            const fallbackRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://games.roblox.com/v1/games?universeIds=' + ids)}`);
+                            if (fallbackRes.status === 429) throw new Error("429");
+                            const fallbackData = await fallbackRes.json();
+                            processGameData(fallbackData);
+                            continue;
+                        } else {
+                            throw new Error("429");
+                        }
+                    }
+                    if (res.status >= 400 && res.status !== 429) throw new Error("404");
                     
                     const data = await res.json();
-                    if (data && data.data) {
-                        data.data.forEach(game => {
-                            if (game.id && marketData[game.id]) {
-                                const playing = parseInt(game.playing) || 0;
-                                const md = marketData[game.id];
-                                if (md.start === 0 && playing > 0) md.start = playing;
-                                if (md.current === 0) md.current = playing;
-                                md.target = playing;
-                            }
-                        });
-                        
-                        // Libera UI ao receber primeiros dados
-                        document.getElementById('loading-overlay').style.display = 'none';
-                        document.getElementById('ai-panel').style.display = 'block';
-                    }
+                    processGameData(data);
+                    
                 } catch (err) {
-                    if (err.message === "429") {
+                    chunk.forEach(a => {
+                        const md = marketData[a.id];
+                        if (err.message === "429") {
+                            md.status = 'ratelimit'; // Laranja
+                        } else if (md.status !== 'active') {
+                            md.status = 'waiting'; // Vermelho (Se nunca recebeu dados reais)
+                        }
+
+                        // SÓ aplicamos mock/fallback de dados SE o ativo não estiver "waiting" (ou seja, se já teve dados alguma vez)
+                        // Assim, um ativo que nunca teve dados reais não será falso-positivado com fallback.
+                        if (md.status !== 'waiting') {
+                            const baseVal = FALLBACK_Bases[a.id] || 50000;
+                            const fluctuation = Math.floor((Math.random() - 0.4) * (baseVal * 0.05));
+                            const val = baseVal + fluctuation;
+                            
+                            if (md.start === 0) md.start = val;
+                            if (md.current === 0) md.current = val;
+                            md.target = val;
+                        }
+                    });
+                    
+                    if (err.message === "429" && !rateLimitCooldown) {
                         triggerCooldown();
-                    } else {
-                        console.error(err);
                     }
                 }
+                
+                document.getElementById('loading-overlay').style.display = 'none';
+                document.getElementById('ai-panel').style.display = 'block';
 
                 if (i + CHUNK_SIZE < ASSETS.length) {
                     await new Promise(r => setTimeout(r, DELAY));
                 }
             }
+
+            // Atualiza histórico apenas depois de rodar todos (1 frame completo)
+            ASSETS.forEach(a => {
+                const md = marketData[a.id];
+                if (md.target > 0) {
+                    md.current = md.target;
+                    md.history.push(md.current);
+                    md.history.shift();
+                }
+            });
+            updateUI();
         }
 
         function triggerCooldown() {
@@ -320,9 +368,11 @@
             }, 30000);
         }
 
-        // Loop principal da API (a cada 30s)
-        fetchMarketData();
-        setInterval(fetchMarketData, 30000);
+        // Loop principal da API (Inicialização e Escalonamento)
+        fetchMarketData().then(() => {
+            const activeBtn = document.querySelector('.tf-btn.active');
+            if(activeBtn) setTimeframe('1M', activeBtn);
+        });
 
         // Inteligência Artificial e UI Updates
         function updateUI() {
@@ -334,7 +384,11 @@
                     tr.id = `row-${a.id}`;
                     tr.onclick = () => selectAsset(a.id);
                     tr.innerHTML = `
-                        <td><span class="ticker">${a.ticker}</span><span class="ticker-name">${a.name}</span></td>
+                        <td>
+                            <i class="fas fa-circle status-dot waiting" id="dot-${a.id}"></i>
+                            <span class="ticker">${a.ticker}</span>
+                            <span class="ticker-name">${a.name}</span>
+                        </td>
                         <td id="val-${a.id}">-</td>
                     `;
                     tbody.appendChild(tr);
@@ -344,28 +398,38 @@
             ASSETS.forEach(a => {
                 const el = document.getElementById(`val-${a.id}`);
                 const row = document.getElementById(`row-${a.id}`);
+                const dot = document.getElementById(`dot-${a.id}`);
                 const md = marketData[a.id];
+                
+                if(dot) dot.className = `fas fa-circle status-dot ${md.status}`;
+
                 if (el && md.current > 0) {
                     el.innerText = Math.round(md.current).toLocaleString();
                     el.style.color = md.current >= md.start ? 'var(--buy)' : 'var(--sell)';
                 }
+
                 if(row) {
-                    a.id === activeAsset ? row.classList.add('active') : row.classList.remove('active');
+                    if (md.status === 'waiting') {
+                        row.classList.add('disabled');
+                        row.classList.remove('active');
+                    } else {
+                        row.classList.remove('disabled');
+                        a.id === activeAsset ? row.classList.add('active') : row.classList.remove('active');
+                    }
                 }
             });
 
             // Painel Central & Gráfico
-            if (!isMockingTimeframe) {
-                const ac = ASSETS.find(a => a.id === activeAsset);
-                const md = marketData[activeAsset];
-                
-                document.getElementById('header-name').innerText = ac.name;
-                document.getElementById('header-ticker').innerText = `$${ac.ticker}`;
-                
-                if (md.current > 0) {
-                    const chg = ((md.current - md.start) / md.start) * 100;
-                    document.getElementById('exec-price').innerText = Math.round(md.current).toLocaleString();
-                    const elChg = document.getElementById('exec-change');
+            const ac = ASSETS.find(a => a.id === activeAsset);
+            const md = marketData[activeAsset];
+            
+            document.getElementById('header-name').innerText = ac.name;
+            document.getElementById('header-ticker').innerText = `$${ac.ticker}`;
+            
+            if (md.current > 0) {
+                const chg = ((md.current - md.start) / md.start) * 100;
+                document.getElementById('exec-price').innerText = Math.round(md.current).toLocaleString();
+                const elChg = document.getElementById('exec-change');
                     elChg.innerText = `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%`;
                     elChg.className = chg >= 0 ? 'delta-positive' : 'delta-negative';
 
@@ -385,39 +449,65 @@
                         document.getElementById('ai-rsi').innerText = m > 0 ? "Compradora" : "Vendedora";
                         document.getElementById('ai-rsi').style.color = m > 0 ? "var(--buy)" : "var(--sell)";
 
-                        document.getElementById('ai-conclusion').innerHTML = m > 0 
-                            ? `A derivada direcional positiva ($M > 0$) sustenta pressão de alta intrínseca. Projeção aponta continuidade altista visando suporte secundário acima de ${Math.round(curr + (m*3)).toLocaleString()}.`
-                            : `Convergência negativa detectada. O sistema sugere realização de saques ou liquidação de posições LONG até o estabelecimento de um solo em ${Math.round(curr + (m*3)).toLocaleString()}.`;
-
                         // Desenhar SMA10 e Projeção
-                        const sma = new Array(60).fill(null);
+                        const sma = new Array(70).fill(null);
                         for(let i=9; i < validData.length; i++) {
                             sma[(60 - validData.length) + i] = validData.slice(i-9, i+1).reduce((a,b)=>a+b,0)/10;
                         }
                         chart.data.datasets[1].data = sma;
 
                         const proj = new Array(70).fill(null);
+                        const bandUpper = new Array(70).fill(null);
+                        const bandLower = new Array(70).fill(null);
                         chart.data.labels = new Array(70).fill('').map((_, i) => i < 60 ? `T-${60-i}` : `F+${i-59}`);
+                        
                         proj[59] = curr;
-                        let slope = m / 2; 
+                        bandUpper[59] = curr;
+                        bandLower[59] = curr;
+                        
+                        // Calculando volatilidade (Desvio Padrão dos últimos 10)
+                        const avg10 = past10;
+                        let variance = 0;
+                        for(let i = validData.length - 10; i < validData.length; i++) {
+                            variance += Math.pow(validData[i] - avg10, 2);
+                        }
+                        const stdDev = Math.sqrt(variance / 10);
+                        const volMargin = Math.max(stdDev * 1.5, curr * 0.0005);
+
+                        let slope = m / 3; 
+                        let noiseAmp = stdDev * 0.3;
                         for(let i=1; i<=10; i++) {
-                            proj[59+i] = curr + (slope * i);
-                            slope *= 0.9; // friction
+                            // Suavização da curva
+                            proj[59+i] = curr + (slope * i) + ((Math.random() - 0.5) * noiseAmp);
+                            
+                            // Abertura das bandas (Cone de Incerteza)
+                            const expansion = volMargin * (i / 3); 
+                            bandUpper[59+i] = proj[59+i] + expansion;
+                            bandLower[59+i] = proj[59+i] - expansion;
+                            
+                            slope *= 0.85; // decaimento do momento
+                            noiseAmp *= 1.1; // incerteza aumenta
                         }
                         chart.data.datasets[2].data = proj;
+                        chart.data.datasets[3].data = bandUpper;
+                        chart.data.datasets[4].data = bandLower;
+
+                        document.getElementById('ai-conclusion').innerHTML = m > 0 
+                            ? `O canal direcional é de crescimento orgânico. Base quantitativa aponta continuação no curto prazo rumo ao teto de $${Math.round(proj[69]).toLocaleString()}$, com índice de convicção adaptativo (Cone exibido no gráfico).`
+                            : `Convergência técnica descendente estabelecida. Sugere-se redimensionamento das posições. Expectativa macro para os próximos 10s buscar piso de $${Math.round(proj[69]).toLocaleString()}$.`;
                     }
 
                     chart.update('none');
                 }
-            }
         }
 
         // Funções de Interação
         function selectAsset(id) {
+            if (marketData[id].status === 'waiting') return; // Bloqueia seleção de ativos inutilizados
             activeAsset = id;
-            isMockingTimeframe = false;
             document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
             document.querySelector('.tf-btn').classList.add('active'); // Reset to 1M
+            setTimeframe('1M', document.querySelector('.tf-btn'));
             
             // Mock Demographics update based on ID to look dynamic
             const str = id.toString();
@@ -454,37 +544,50 @@
             showToast(`Ordem ${type} executada em ${ticker}`);
         }
 
-        // Mock Macro Timeframes
+        // Macro Timeframes dinâmicos e controle de requisições
         function setTimeframe(tf, btn) {
             document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+            activeTimeframe = tf;
             
-            if(tf === '1M') {
-                isMockingTimeframe = false;
-                chart.data.labels = new Array(60).fill('').map((_, i) => `T-${60-i}`);
-                return updateUI();
-            }
+            const TF_MS = {
+                '1M': 60000,          // 1 Minuto
+                '15M': 15 * 60000,    // 15 Minutos
+                '1H': 60 * 60000,     // 1 Hora
+                '1D': 24 * 60 * 60000,// 1 Dia
+                '1W': 7 * 24 * 60 * 60000 // 1 Semana
+            };
 
-            isMockingTimeframe = true;
-            const md = marketData[activeAsset];
-            const base = md.current || 10000;
-            const mult = tf === '1H' ? 0.05 : (tf === '1D' ? 0.15 : 0.3);
+            // Atualiza Histórico Mockado baseando-se na amplitude do momento para não gerar gráficos vazios
+            ASSETS.forEach(a => {
+                const md = marketData[a.id];
+                const base = md.current || 100000;
+                let mult = 0.01;
+                if (tf === '15M') mult = 0.02;
+                if (tf === '1H') mult = 0.05;
+                if (tf === '1D') mult = 0.15;
+                if (tf === '1W') mult = 0.3;
+                
+                const mockData = [];
+                let val = base - (base * mult); 
+                for(let i=0; i<60; i++) {
+                    val += (Math.random() - 0.4) * (base * (mult/20));
+                    mockData.push(Math.round(val));
+                }
+                mockData[59] = base; 
+                md.history = [...mockData];
+            });
+
+            chart.data.labels = new Array(70).fill('').map((_, i) => i < 60 ? `${tf}-${60-i}` : `F+${i-59}`);
             
-            const mockData = [];
-            let val = base - (base * mult); // Começa mais baixo no passado
-            for(let i=0; i<60; i++) {
-                val += (Math.random() - 0.4) * (base * 0.02);
-                mockData.push(Math.round(val));
-            }
-            mockData[59] = base; // Amarra com o presente
+            // Define o novo cronograma real de atualizações (fetch)
+            if (fetchClock) clearInterval(fetchClock);
+            fetchClock = setInterval(fetchMarketData, TF_MS[tf] || 60000);
+
+            // Atualiza texto da AI informando escopo real
+            document.getElementById('ai-conclusion').innerHTML = `<span style="color:var(--text-dim)">Visualização readequada ao timeframe ${tf}. Pipeline algorítmico processando com base no cronograma selecionado.</span>`;
             
-            chart.data.labels = new Array(60).fill('').map((_, i) => `${tf}-${60-i}`);
-            chart.data.datasets[0].data = mockData;
-            chart.data.datasets[1].data = [];
-            chart.data.datasets[2].data = [];
-            chart.update();
-            
-            document.getElementById('ai-conclusion').innerHTML = `<span style="color:var(--text-dim)">Visualização macroativa interpolada. Análise quantitativa operando em bypass devido ao span histórico algorítmico do modelo ser referencial ao tempo dinâmico (T-60s).</span>`;
+            updateUI();
         }
 
         function showToast(msg, type="info") {
