@@ -3,518 +3,317 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Atlas Terminal Pro | Real-Time Market</title>
+    <title>Atlas Terminal Ultra | Institutional Grade</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0/dist/chartjs-plugin-annotation.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* --- Variáveis Profissionais --- */
         :root {
-            --bg-base: #0b0e14;
-            --bg-surface: #151a23;
-            --bg-elevated: #1e2532;
-            --border-color: #2b3544;
-            --text-primary: #f3f4f6;
-            --text-secondary: #9ca3af;
-            --accent-cyan: #00f5d4;
-            --accent-blue: #3b82f6;
-            --trade-buy: #10b981;
-            --trade-sell: #ef4444;
-            --glass-bg: rgba(21, 26, 35, 0.85);
+            --bg-main: #06090f; --bg-card: #0d1117; --border: #30363d;
+            --cyan: #00f5d4; --blue: #3b82f6; --up: #22c55e; --down: #ef4444;
+            --text: #c9d1d9; --text-dim: #8b949e;
         }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', 'Segoe UI', sans-serif; }
-        body { background-color: var(--bg-base); color: var(--text-primary); display: flex; height: 100vh; overflow: hidden; font-size: 14px; }
-
-        /* --- Layout --- */
-        .sidebar { width: 260px; background: var(--bg-surface); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 10; }
-        .brand { padding: 24px; font-size: 1.2rem; font-weight: 800; color: var(--text-primary); letter-spacing: 1px; border-bottom: 1px solid var(--border-color); }
-        .brand span { color: var(--accent-cyan); }
-        .nav-menu { padding: 16px; flex: 1; }
-        .nav-item { padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; gap: 12px; transition: 0.2s; }
-        .nav-item:hover, .nav-item.active { background: rgba(0, 245, 212, 0.05); color: var(--accent-cyan); }
-        .sidebar-footer { padding: 24px; border-top: 1px solid var(--border-color); }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg-main); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
         
-        .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .top-bar { height: 60px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; padding: 0 24px; background: var(--bg-surface); }
-        .api-status { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); }
-        .pulse-dot { width: 8px; height: 8px; background: var(--trade-sell); border-radius: 50%; box-shadow: 0 0 8px var(--trade-sell); }
-        .pulse-dot.online { background: var(--trade-buy); box-shadow: 0 0 8px var(--trade-buy); animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
-
-        .dashboard { flex: 1; padding: 24px; display: grid; grid-template-columns: 2.5fr 1fr; grid-template-rows: auto 1fr; gap: 20px; overflow-y: auto; }
-
-        /* --- Componentes --- */
-        .panel { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; }
-        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-        .panel-title { font-weight: 600; color: var(--text-primary); font-size: 1rem; }
-
-        /* Chart Area */
-        .chart-area { grid-column: 1; grid-row: 1 / span 2; min-height: 500px; }
-        .canvas-wrapper { flex: 1; position: relative; width: 100%; min-height: 400px; }
-        .timeframe-selector button { background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 4px 12px; border-radius: 4px; cursor: pointer; transition: 0.2s; font-size: 0.8rem; }
-        .timeframe-selector button.active { background: rgba(0, 245, 212, 0.1); color: var(--accent-cyan); border-color: var(--accent-cyan); }
-
-        /* Trade Terminal */
-        .trade-terminal { grid-column: 2; grid-row: 1; }
-        .asset-price-box { margin: 16px 0; }
-        .asset-ticker { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px; }
-        .asset-price { font-size: 2.5rem; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 10px; }
-        .price-change { font-size: 1rem; padding: 4px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.1); color: var(--trade-buy); }
-        .price-change.down { background: rgba(239, 68, 68, 0.1); color: var(--trade-sell); }
+        /* Layout */
+        .sidebar { width: 280px; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+        .viewport { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
         
-        .ai-box { margin-top: 16px; padding: 12px; background: rgba(59, 130, 246, 0.05); border-left: 3px solid var(--accent-blue); border-radius: 0 4px 4px 0; font-size: 0.85rem; line-height: 1.4; }
+        /* Header & Nav */
+        .header { height: 60px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: var(--bg-card); }
+        .timeframes { display: flex; gap: 5px; background: var(--bg-main); padding: 4px; border-radius: 6px; }
+        .tf-btn { background: transparent; border: none; color: var(--text-dim); padding: 6px 12px; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .tf-btn.active { background: var(--border); color: var(--cyan); }
+
+        /* Grid System */
+        .main-grid { display: grid; grid-template-columns: 1fr 320px; grid-template-rows: 1fr 250px; gap: 1px; background: var(--border); flex: 1; }
+        .cell { background: var(--bg-main); overflow: hidden; position: relative; display: flex; flex-direction: column; }
         
-        .btn-group { display: flex; gap: 10px; margin-top: 24px; }
-        .btn { flex: 1; padding: 12px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; }
-        .btn-buy { background: var(--trade-buy); }
-        .btn-buy:hover { background: #059669; }
-        .btn-sell { background: var(--trade-sell); }
-        .btn-sell:hover { background: #dc2626; }
-        .btn-outline { background: transparent; border: 1px solid var(--accent-cyan); color: var(--accent-cyan); }
-        .btn-outline:hover { background: var(--accent-cyan); color: var(--bg-base); }
+        /* Chart Customization */
+        #mainChartContainer { grid-column: 1; grid-row: 1; padding: 15px; }
+        .trade-panel { grid-column: 2; grid-row: 1 / span 2; background: var(--bg-card); padding: 20px; }
+        .watchlist-panel { grid-column: 1; grid-row: 2; padding: 15px; background: var(--bg-card); }
 
         /* Watchlist Table */
-        .watchlist { grid-column: 2; grid-row: 2; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
-        .table-wrapper { flex: 1; overflow-y: auto; }
-        table { width: 100%; border-collapse: collapse; text-align: left; }
-        th { position: sticky; top: 0; background: var(--bg-elevated); padding: 12px 16px; color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; font-weight: 600; border-bottom: 1px solid var(--border-color); z-index: 2; }
-        td { padding: 12px 16px; border-bottom: 1px solid rgba(43, 53, 68, 0.5); font-variant-numeric: tabular-nums; }
-        tr { transition: 0.2s; cursor: pointer; }
-        tr:hover { background: var(--bg-elevated); }
-        tr.active { background: rgba(0, 245, 212, 0.05); border-left: 2px solid var(--accent-cyan); }
-        .badge { padding: 2px 6px; border-radius: 4px; background: var(--bg-elevated); font-size: 0.75rem; margin-left: 8px; border: 1px solid var(--border-color); }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { color: var(--text-dim); text-align: left; padding: 10px; border-bottom: 1px solid var(--border); }
+        td { padding: 12px 10px; border-bottom: 1px solid rgba(48, 54, 61, 0.5); cursor: pointer; }
+        tr:hover { background: rgba(255,255,255,0.03); }
+        tr.selected { background: rgba(0, 245, 212, 0.05); border-left: 3px solid var(--cyan); }
 
-        /* Modals & Toasts */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 14, 20, 0.8); backdrop-filter: blur(4px); z-index: 100; justify-content: center; align-items: center; }
-        .modal-overlay.active { display: flex; }
-        .modal-content { background: var(--bg-surface); width: 400px; padding: 24px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 20px 40px rgba(0,0,0,0.5); position: relative; }
-        .close-btn { position: absolute; top: 16px; right: 16px; cursor: pointer; color: var(--text-secondary); }
-        .input-group { margin-bottom: 16px; }
-        .input-group label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 0.85rem; }
-        .input-group input { width: 100%; padding: 10px; background: var(--bg-base); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 6px; outline: none; }
-        .input-group input:focus { border-color: var(--accent-cyan); }
+        /* Buy/Sell Popup Animation */
+        .trade-popup {
+            position: absolute; padding: 10px 20px; border-radius: 8px; font-weight: bold;
+            color: white; z-index: 100; pointer-events: none; animation: popupMove 1.5s ease-out forwards;
+        }
+        @keyframes popupMove {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-100px); opacity: 0; }
+        }
 
-        #toast-container { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 10px; z-index: 999; }
-        .toast { background: var(--bg-elevated); border-left: 4px solid var(--accent-cyan); padding: 16px; border-radius: 6px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 12px; animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .toast.error { border-left-color: var(--trade-sell); }
-        .toast.success { border-left-color: var(--trade-buy); }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-        /* Toggles */
-        .switch { position: relative; display: inline-block; width: 36px; height: 20px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border-color); transition: .3s; border-radius: 20px; }
-        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--accent-cyan); }
-        input:checked + .slider:before { transform: translateX(16px); }
-        .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-color); }
+        /* Buttons */
+        .action-btn { width: 100%; padding: 15px; border-radius: 8px; border: none; font-weight: 800; cursor: pointer; margin-bottom: 10px; transition: 0.2s; }
+        .btn-buy { background: var(--up); color: #fff; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3); }
+        .btn-sell { background: var(--down); color: #fff; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3); }
+        
+        /* IA Insights */
+        .ia-card { background: rgba(59, 130, 246, 0.1); border: 1px solid var(--blue); padding: 15px; border-radius: 8px; margin-top: 20px; }
+        .ia-status { font-size: 12px; color: var(--blue); margin-bottom: 5px; font-weight: bold; text-transform: uppercase; }
     </style>
 </head>
 <body>
 
-    <div class="sidebar">
-        <div class="brand"><i class="fas fa-layer-group"></i> Atlas <span>Pro</span></div>
-        <div class="nav-menu">
-            <div class="nav-item active"><i class="fas fa-chart-candlestick"></i> Terminal de Trade</div>
-            <div class="nav-item" onclick="openModal('settingsModal')"><i class="fas fa-sliders-h"></i> Preferências IA</div>
+<div class="sidebar">
+    <div style="padding: 20px; font-size: 1.4rem; font-weight: 900; color: var(--cyan);">ATLAS <span style="color:#fff">PRO</span></div>
+    <div style="padding: 10px 20px;">
+        <p style="font-size: 11px; color: var(--text-dim);">CONEXÃO SUPABASE</p>
+        <div id="conn-status" style="display: flex; align-items: center; gap: 8px; margin-top: 5px; font-size: 13px;">
+            <div style="width:8px; height:8px; border-radius:50%; background: orange;"></div> Conectando...
         </div>
-        <div class="sidebar-footer">
-            <button class="btn btn-outline" style="width: 100%" onclick="openModal('loginModal')">
-                <i class="fas fa-user-circle"></i> Fazer Login
-            </button>
+    </div>
+</div>
+
+<div class="viewport">
+    <div class="header">
+        <div id="active-asset-info">
+            <span id="active-name" style="font-weight: bold; font-size: 18px;">Carregando...</span>
+            <span id="active-ticker" style="color: var(--text-dim); margin-left: 10px;">---</span>
+        </div>
+        <div class="timeframes">
+            <button class="tf-btn active" onclick="changeTF('1M')">1M</button>
+            <button class="tf-btn" onclick="changeTF('1H')">1H</button>
+            <button class="tf-btn" onclick="changeTF('1D')">1D</button>
+            <button class="tf-btn" onclick="changeTF('1W')">1W</button>
         </div>
     </div>
 
-    <div class="main-content">
-        <div class="top-bar">
-            <h2 style="font-size: 1.1rem; font-weight: 500;">Live Market Watch</h2>
-            <div class="api-status">
-                <div class="pulse-dot" id="status-dot"></div>
-                <span id="status-text">Aguardando Conexão API...</span>
+    <div class="main-grid">
+        <div class="cell" id="mainChartContainer">
+            <canvas id="mainChart"></canvas>
+        </div>
+
+        <div class="trade-panel">
+            <div style="margin-bottom: 20px;">
+                <p style="color: var(--text-dim); font-size: 12px;">PREÇO ATUAL (CCU)</p>
+                <h1 id="live-price" style="font-size: 42px; font-variant-numeric: tabular-nums;">0</h1>
+                <p id="price-delta" style="font-weight: bold;">+0.00%</p>
+            </div>
+
+            <button class="action-btn btn-buy" onclick="spawnTrade('BUY')">COMPRAR (LONG)</button>
+            <button class="action-btn btn-sell" onclick="spawnTrade('SELL')">VENDER (SHORT)</button>
+
+            <div class="ia-card">
+                <div class="ia-status"><i class="fas fa-brain"></i> Projeção IA Atlas</div>
+                <p id="ia-prediction" style="font-size: 13px;">Analisando padrões de volume...</p>
+                <div id="ia-target" style="margin-top: 10px; font-weight: bold; color: var(--cyan);">--</div>
             </div>
         </div>
 
-        <div class="dashboard">
-            <div class="panel chart-area">
-                <div class="panel-header">
-                    <span class="panel-title" id="chart-title">Análise de Volume - Select Asset</span>
-                    <div class="timeframe-selector">
-                        <button class="active">1M (Live)</button>
-                        <button disabled title="Requer histórico de BD contínuo">1H</button>
-                    </div>
-                </div>
-                <div class="canvas-wrapper">
-                    <canvas id="marketChart"></canvas>
-                </div>
-            </div>
-
-            <div class="panel trade-terminal">
-                <div class="panel-header"><span class="panel-title">Execução Rápida</span></div>
-                
-                <div class="asset-price-box">
-                    <div class="asset-ticker" id="trade-name">Selecione um ativo na tabela</div>
-                    <div class="asset-price">
-                        <span id="trade-price">0</span>
-                        <span class="price-change" id="trade-change">+0.00%</span>
-                    </div>
-                </div>
-
-                <div class="ai-box" id="ai-insight">
-                    <strong><i class="fas fa-brain"></i> Atlas IA:</strong> Coletando dados do Supabase para gerar previsão técnica...
-                </div>
-
-                <div class="btn-group">
-                    <button class="btn btn-buy" onclick="executeTrade('BUY')">COMPRAR</button>
-                    <button class="btn btn-sell" onclick="executeTrade('SELL')">LIQUIDAR</button>
-                </div>
-            </div>
-
-            <div class="panel watchlist">
-                <div class="panel-header" style="padding: 20px 20px 0 20px;">
-                    <span class="panel-title">Ativos Oficiais (Roblox API)</span>
-                </div>
-                <div class="table-wrapper">
-                    <table>
-                        <thead><tr><th>Ativo</th><th>Live CCU</th><th>Trend</th></tr></thead>
-                        <tbody id="market-tbody">
-                            </tbody>
-                    </table>
-                </div>
-            </div>
+        <div class="watchlist-panel">
+            <table>
+                <thead>
+                    <tr><th>Ativo</th><th>Volume (CCU)</th><th>Trend 24h</th><th>Status</th></tr>
+                </thead>
+                <tbody id="watchlist-body">
+                    </tbody>
+            </table>
         </div>
     </div>
+</div>
 
-    <div class="modal-overlay" id="loginModal">
-        <div class="modal-content">
-            <i class="fas fa-times close-btn" onclick="closeModal('loginModal')"></i>
-            <h2 style="margin-bottom: 20px;">Acesso ao Terminal</h2>
-            <div class="input-group">
-                <label>E-mail de Operador</label>
-                <input type="email" placeholder="operador@atlas.com">
-            </div>
-            <div class="input-group">
-                <label>Senha Segura</label>
-                <input type="password" placeholder="••••••••">
-            </div>
-            <button class="btn btn-buy" style="width: 100%; margin-top: 10px;" onclick="doLogin()">Autenticar</button>
-        </div>
-    </div>
+<script>
+    // Configurações de API
+    const SUPABASE_URL = "SUA_URL_DO_SUPABASE";
+    const SUPABASE_KEY = "SUA_ANON_KEY";
+    
+    const GAMES = [
+        { id: 1119586118, name: "Blox Fruits", ticker: "BLXF" },
+        { id: 1702695413, name: "Brookhaven", ticker: "BRKH" },
+        { id: 332284684, name: "Adopt Me!", ticker: "ADPT" },
+        { id: 66654135, name: "Murder Mystery 2", ticker: "MM2X" },
+        { id: 2603415162, name: "BedWars", ticker: "BEDW" },
+        { id: 4982631553, name: "Pet Simulator 99", ticker: "PETS" }
+    ];
 
-    <div class="modal-overlay" id="settingsModal">
-        <div class="modal-content">
-            <i class="fas fa-times close-btn" onclick="closeModal('settingsModal')"></i>
-            <h2 style="margin-bottom: 20px;">Configurações do Gráfico</h2>
-            <div class="setting-row">
-                <span>Projeção Algorítmica (IA)</span>
-                <label class="switch"><input type="checkbox" id="toggleAi" checked onchange="app.updateChart()"><span class="slider"></span></label>
-            </div>
-            <div class="setting-row">
-                <span>Marcadores de Operação</span>
-                <label class="switch"><input type="checkbox" id="toggleMarkers" checked onchange="app.updateChart()"><span class="slider"></span></label>
-            </div>
-        </div>
-    </div>
+    let currentTF = '1M';
+    let selectedId = GAMES[0].id;
+    let chart;
+    let marketData = {};
 
-    <div id="toast-container"></div>
+    // Inicializar Estrutura de Dados
+    GAMES.forEach(g => {
+        marketData[g.id] = {
+            ccu: 0,
+            history: Array.from({length: 50}, () => Math.floor(Math.random() * 50000 + 20000)),
+            lastUpdate: Date.now()
+        };
+    });
 
-    <script>
-        // ==========================================
-        // CONFIGURAÇÕES GERAIS E CHAVES
-        // ==========================================
-        const SUPABASE_URL = "https://xjgdtwevqrrnorgzelrz.supabase.co/functions/v1/roblox-proxy"; 
-        
-        // COLE SUA CHAVE ANON DO SUPABASE AQUI (Necessário para evitar o Erro 401)
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqZ2R0d2V2cXJybm9yZ3plbHJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMzk3ODAsImV4cCI6MjA4OTYxNTc4MH0.XGmwAxTNWghMRzTDMZvu5IXHmHy_7Xw54RjdPzqa-Dw";
-        
-        const ASSETS = [
-            { id: 1119586118, name: "Blox Fruits", ticker: "BLXF" },
-            { id: 1702695413, name: "Brookhaven", ticker: "BRKH" },
-            { id: 332284684, name: "Adopt Me!", ticker: "ADPT" },
-            { id: 66654135, name: "Murder Mystery 2", ticker: "MM2X" },
-            { id: 2603415162, name: "BedWars", ticker: "BEDW" },
-            { id: 4982631553, name: "Pet Simulator 99", ticker: "PETS" },
-            { id: 1117315504, name: "Arsenal", ticker: "ARSN" },
-            { id: 606849621, name: "Jailbreak", ticker: "JLBK" }
-        ];
-
-        // ==========================================
-        // LÓGICA DO APLICATIVO (OOP)
-        // ==========================================
-        class AtlasTerminal {
-            constructor() {
-                this.activeAsset = ASSETS[0].id;
-                this.marketData = {}; // Guarda { targetCcu, currentCcu, history: [] }
-                this.annotations = {}; // Posições de compra { assetId: { id: config } }
-                this.positions = {}; // Posições abertas { assetId: price }
-                
-                ASSETS.forEach(a => {
-                    this.marketData[a.id] = { targetCcu: 0, currentCcu: 0, history: new Array(60).fill(null), startCcu: 0 };
-                    this.annotations[a.id] = {};
-                });
-
-                this.initChart();
-                this.startHybridEngine();
+    function initChart() {
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(50).fill(''),
+                datasets: [{
+                    label: 'Live CCU',
+                    data: marketData[selectedId].history,
+                    borderColor: '#00f5d4',
+                    borderWidth: 3,
+                    pointRadius: 0,
+                    tension: 0.4,
+                    fill: { target: 'origin', above: 'rgba(0, 245, 212, 0.05)' }
+                }, {
+                    label: 'IA Projection',
+                    data: Array(50).fill(null),
+                    borderColor: '#3b82f6',
+                    borderDash: [5, 5],
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { grid: { color: '#30363d' }, position: 'right' },
+                    x: { display: false }
+                },
+                plugins: { legend: { display: false } }
             }
+        });
+    }
 
-            initChart() {
-                const ctx = document.getElementById('marketChart').getContext('2d');
-                Chart.defaults.color = '#9ca3af';
-                Chart.defaults.font.family = "'Inter', sans-serif";
-
-                this.chart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: new Array(60).fill('').map((_, i) => `${60 - i}s`),
-                        datasets: [
-                            { label: 'Live Volume', data: [], borderColor: '#00f5d4', backgroundColor: 'rgba(0, 245, 212, 0.05)', fill: true, tension: 0.2, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5 },
-                            { label: 'Projeção IA', data: [], borderColor: 'rgba(59, 130, 246, 0.8)', borderDash: [5, 5], tension: 0.2, borderWidth: 2, pointRadius: 0 }
-                        ]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false, animation: false,
-                        interaction: { intersect: false, mode: 'index' },
-                        plugins: { legend: { display: false }, annotation: { annotations: {} } },
-                        scales: { x: { grid: { display: false } }, y: { grid: { color: 'rgba(43, 53, 68, 0.5)' }, position: 'right' } }
-                    }
+    async function fetchData() {
+        try {
+            // Chamada individual para evitar erro de lote
+            for (let game of GAMES) {
+                const res = await fetch(`${SUPABASE_URL}/functions/v1/roblox-proxy?universeIds=${game.id}`, {
+                    headers: { 'Authorization': `Bearer ${SUPABASE_KEY}`, 'apikey': SUPABASE_KEY }
                 });
-            }
-
-            // Motor Híbrido: Fetch a cada 30s + Interpolation por segundo
-            startHybridEngine() {
-                // Poll real API
-                this.fetchApiData();
-                setInterval(() => this.fetchApiData(), 30000);
-
-                // Tick local (1s) para gerar "vida" no gráfico conectando os pontos reais
-                setInterval(() => this.tickLocal(), 1000);
-            }
-
-            async fetchApiData() {
-            const dot = document.getElementById('status-dot');
-            const txt = document.getElementById('status-text');
-            try {
-                dot.classList.remove('online'); 
-                dot.style.background = 'yellow';
-                txt.innerText = "Sincronizando...";
-
-                const ids = ASSETS.map(a => a.id).join(',');
-                
-                const res = await fetch(`${SUPABASE_URL}?universeIds=${ids}`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
                 const json = await res.json();
-
-                // Tratamento específico para o erro 429 (Rate Limit)
-                if (res.status === 429 || (json.error && json.error.includes('429'))) {
-                    dot.style.background = 'orange';
-                    txt.innerText = "Limite da API (Cooldown)... Mantendo dados atuais.";
-                    console.warn("Rate limit atingido. Tentaremos novamente em breve.");
-                    return; // Sai da função sem quebrar o gráfico atual
-                }
-
-                if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
                 
-                const realData = json.data;
-
-                if (realData && realData.length > 0) {
-                    realData.forEach(game => {
-                        const data = this.marketData[game.id];
-                        if (data) {
-                            if (data.currentCcu === 0) { 
-                                data.currentCcu = game.playing; 
-                                data.startCcu = game.playing; 
-                            }
-                            data.targetCcu = game.playing;
-                        }
-                    });
-                }
-
-                dot.classList.add('online'); 
-                dot.style.background = '';
-                // Se veio do cache do backend, avisa no status sutilmente
-                txt.innerText = json.cached ? "API Conectada (Em Cache)" : "API Conectada (Live)";
-                
-            } catch (error) {
-                console.error("API Error:", error);
-                dot.classList.remove('online'); 
-                dot.style.background = 'var(--trade-sell)';
-                txt.innerText = "Falha na conexão. Retentando...";
-            }
-        }
-
-            tickLocal() {
-                ASSETS.forEach(asset => {
-                    const data = this.marketData[asset.id];
-                    if (data.targetCcu === 0) return; // Aguardando primeiro fetch
-
-                    // Passeio aleatório em direção ao Target Real
-                    const diff = data.targetCcu - data.currentCcu;
-                    const step = diff * 0.1; // Move 10% da diferença por segundo
-                    const noise = (Math.random() - 0.5) * (data.targetCcu * 0.001); // Ruído minúsculo (0.1%)
-                    
-                    data.currentCcu = Math.round(data.currentCcu + step + noise);
-                    
-                    data.history.shift();
-                    data.history.push(data.currentCcu);
-                });
-
-                this.updateUI();
-            }
-
-            // "IA" Matemática: Regressão Linear Simples
-            calculateAI(history) {
-                const validData = history.filter(v => v !== null);
-                if (validData.length < 10) return { forecast: [], signal: 'Aguardando dados', trend: 0 };
-                
-                const last = validData[validData.length - 1];
-                const start = validData[Math.max(0, validData.length - 15)]; // Tendência dos últimos 15s
-                const slope = (last - start) / 15;
-                
-                let forecast = new Array(60).fill(null);
-                forecast[59] = last;
-                for(let i=1; i<=5; i++) forecast.push(last + (slope * i * 3)); // Projeta à frente
-                
-                return { 
-                    forecast, 
-                    signal: slope > 5 ? 'COMPRA FORTE' : (slope < -5 ? 'VENDA FORTE' : 'ACUMULAÇÃO'),
-                    trend: slope
-                };
-            }
-
-            updateUI() {
-                // Atualiza Tabela
-                const tbody = document.getElementById('market-tbody');
-                tbody.innerHTML = '';
-                ASSETS.forEach(asset => {
-                    const data = this.marketData[asset.id];
-                    if(data.currentCcu === 0) return;
-
-                    const change = (((data.currentCcu - data.startCcu) / data.startCcu) * 100) || 0;
-                    const color = change >= 0 ? 'var(--trade-buy)' : 'var(--trade-sell)';
-                    const tr = document.createElement('tr');
-                    if (asset.id === this.activeAsset) tr.classList.add('active');
-                    tr.onclick = () => { this.activeAsset = asset.id; this.updateUI(); };
-                    
-                    tr.innerHTML = `
-                        <td>${asset.ticker} <span class="badge">${asset.name.substring(0,8)}.</span></td>
-                        <td style="font-weight: 600;">${data.currentCcu.toLocaleString('en-US')}</td>
-                        <td style="color: ${color}">${change >= 0 ? '+' : ''}${change.toFixed(2)}%</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-
-                // Atualiza Terminal (Painel Central)
-                const activeData = this.marketData[this.activeAsset];
-                const activeInfo = ASSETS.find(a => a.id === this.activeAsset);
-                if(activeData && activeData.currentCcu > 0) {
-                    const change = (((activeData.currentCcu - activeData.startCcu) / activeData.startCcu) * 100) || 0;
-                    const changeEl = document.getElementById('trade-change');
-                    
-                    document.getElementById('trade-name').innerText = `${activeInfo.name} ($${activeInfo.ticker})`;
-                    document.getElementById('trade-price').innerText = activeData.currentCcu.toLocaleString('en-US');
-                    changeEl.innerText = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
-                    changeEl.className = `price-change ${change < 0 ? 'down' : ''}`;
-
-                    const ai = this.calculateAI(activeData.history);
-                    const aiBox = document.getElementById('ai-insight');
-                    if(ai.trend > 0) {
-                        aiBox.innerHTML = `<strong><i class="fas fa-brain"></i> Análise IA:</strong> Algoritmo detecta momento positivo. Sinal de <strong>${ai.signal}</strong>.`;
-                        aiBox.style.borderLeftColor = 'var(--trade-buy)';
-                    } else {
-                        aiBox.innerHTML = `<strong><i class="fas fa-brain"></i> Análise IA:</strong> Algoritmo detecta contração de volume. Sinal de <strong>${ai.signal}</strong>.`;
-                        aiBox.style.borderLeftColor = ai.trend < 0 ? 'var(--trade-sell)' : 'var(--accent-blue)';
-                    }
-
-                    this.updateChart(activeData.history, ai.forecast, activeInfo.ticker);
+                if (json.data && json.data[0]) {
+                    const realCcu = json.data[0].playing;
+                    updateAssetData(game.id, realCcu);
                 }
             }
-
-            updateChart(historyData = null, forecastData = null, ticker = null) {
-                if(!historyData) historyData = this.marketData[this.activeAsset].history;
-                if(!ticker) ticker = ASSETS.find(a => a.id === this.activeAsset).ticker;
-
-                this.chart.data.datasets[0].data = historyData;
-                this.chart.data.datasets[0].label = `Vol ${ticker}`;
-                
-                const showAi = document.getElementById('toggleAi').checked;
-                this.chart.data.datasets[1].data = showAi && forecastData ? forecastData : [];
-
-                const showMarkers = document.getElementById('toggleMarkers').checked;
-                this.chart.options.plugins.annotation.annotations = showMarkers ? (this.annotations[this.activeAsset] || {}) : {};
-
-                // Ajusta labels se houver forecast
-                let labels = new Array(60).fill('').map((_, i) => `${60 - i}s`);
-                if(showAi) { for(let i=1; i<=5; i++) labels.push(`+${i}s`); }
-                this.chart.data.labels = labels;
-
-                this.chart.update();
-            }
-
-            executeTrade(type) {
-                const currentPrice = this.marketData[this.activeAsset].currentCcu;
-                if(currentPrice === 0) return showToast("Aguarde a conexão com a API.", "error");
-
-                if (type === 'BUY') {
-                    if(this.positions[this.activeAsset]) return showToast("Você já possui uma posição aberta neste ativo.", "error");
-                    
-                    this.positions[this.activeAsset] = currentPrice;
-                    const id = `buy-${Date.now()}`;
-                    this.annotations[this.activeAsset][id] = {
-                        type: 'line', xMin: 59, xMax: 59,
-                        borderColor: 'var(--trade-buy)', borderWidth: 2, borderDash: [4, 4],
-                        label: { display: true, content: `BUY: ${currentPrice}`, backgroundColor: 'var(--trade-buy)', color: '#fff', position: 'start' }
-                    };
-                    showToast(`Ordem de COMPRA executada para $${ASSETS.find(a=>a.id===this.activeAsset).ticker}.`, "success");
-                
-                } else {
-                    const entryPrice = this.positions[this.activeAsset];
-                    if(!entryPrice) return showToast("Nenhuma posição aberta para liquidar.", "error");
-
-                    const pnl = (((currentPrice - entryPrice) / entryPrice) * 100).toFixed(2);
-                    const isProfit = pnl >= 0;
-                    const id = `sell-${Date.now()}`;
-                    
-                    this.annotations[this.activeAsset][id] = {
-                        type: 'line', xMin: 59, xMax: 59,
-                        borderColor: isProfit ? 'var(--trade-buy)' : 'var(--trade-sell)', borderWidth: 2, borderDash: [4, 4],
-                        label: { display: true, content: `SELL (P&L: ${pnl}%)`, backgroundColor: isProfit ? 'var(--trade-buy)' : 'var(--trade-sell)', color: '#fff', position: 'end' }
-                    };
-                    
-                    showToast(`Posição liquidada. Retorno: ${pnl}%`, isProfit ? "success" : "error");
-                    delete this.positions[this.activeAsset];
-                }
-                this.updateChart();
-            }
+            document.getElementById('conn-status').innerHTML = `<div style="width:8px; height:8px; border-radius:50%; background: #22c55e;"></div> Sistema Live`;
+        } catch (e) {
+            console.error("Erro na busca:", e);
         }
+    }
 
-        // ==========================================
-        // UI HELPERS
-        // ==========================================
-        function openModal(id) { document.getElementById(id).classList.add('active'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-        function doLogin() {
-            showToast("Autenticação realizada com sucesso.", "success");
-            closeModal('loginModal');
-        }
-        function showToast(msg, type) {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> <span>${msg}</span>`;
-            container.appendChild(toast);
-            setTimeout(() => { toast.style.opacity = '0'; setTimeout(()=>toast.remove(), 300); }, 3000);
-        }
+    function updateAssetData(id, ccu) {
+        const data = marketData[id];
+        data.ccu = ccu;
+        data.history.push(ccu);
+        data.history.shift();
 
-        // Inicializa o Sistema
-        const app = new AtlasTerminal();
-        window.executeTrade = (type) => app.executeTrade(type);
-    </script>
+        if (id === selectedId) {
+            document.getElementById('live-price').innerText = ccu.toLocaleString();
+            updateIA(data.history);
+        }
+        renderWatchlist();
+    }
+
+    function updateIA(history) {
+        // Algoritmo de Previsão ATLAS
+        const last = history[history.length - 1];
+        const prev = history[history.length - 10];
+        const diff = last - prev;
+        const trend = diff > 0 ? "ALTA" : "BAIXA";
+        
+        // Projeção baseada no timeframe selecionado
+        let projection;
+        const timeframeMap = { '1M': 1, '1H': 60, '1D': 1440, '1W': 10080 };
+        const multiplier = timeframeMap[currentTF];
+        
+        projection = last + (diff * 0.5);
+
+        document.getElementById('ia-prediction').innerText = `Tendência de ${trend} detectada no timeframe ${currentTF}.`;
+        document.getElementById('ia-target').innerText = `ALVO ESTIMADO: ${Math.round(projection).toLocaleString()} CCU`;
+        
+        // Atualiza a linha tracejada do gráfico
+        const iaData = Array(50).fill(null);
+        iaData[49] = last;
+        iaData.push(projection);
+        chart.data.datasets[1].data = iaData;
+        chart.update('none');
+    }
+
+    function renderWatchlist() {
+        const body = document.getElementById('watchlist-body');
+        body.innerHTML = '';
+        GAMES.forEach(g => {
+            const data = marketData[g.id];
+            const tr = document.createElement('tr');
+            if (g.id === selectedId) tr.className = 'selected';
+            tr.onclick = () => selectAsset(g.id);
+            tr.innerHTML = `
+                <td>${g.name} <span style="color:var(--text-dim)">${g.ticker}</span></td>
+                <td style="font-weight:bold">${data.ccu.toLocaleString()}</td>
+                <td style="color:${data.ccu > 30000 ? 'var(--up)' : 'var(--down)'}">${data.ccu > 30000 ? '▲ UP' : '▼ DOWN'}</td>
+                <td><span style="padding:2px 6px; background:rgba(0,245,212,0.1); color:var(--cyan); border-radius:4px; font-size:10px;">ESTÁVEL</span></td>
+            `;
+            body.appendChild(tr);
+        });
+    }
+
+    function selectAsset(id) {
+        selectedId = id;
+        const game = GAMES.find(g => g.id === id);
+        document.getElementById('active-name').innerText = game.name;
+        document.getElementById('active-ticker').innerText = `$${game.ticker}`;
+        chart.data.datasets[0].data = marketData[id].history;
+        chart.update();
+        renderWatchlist();
+    }
+
+    function changeTF(tf) {
+        currentTF = tf;
+        document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        // No mundo real, aqui você buscaria dados históricos do Supabase Table. 
+        // Para este terminal, estamos simulando a compressão visual.
+        showToast(`Timeframe alterado para ${tf}. Recalculando IA...`);
+    }
+
+    function spawnTrade(type) {
+        const price = document.getElementById('live-price');
+        const rect = price.getBoundingClientRect();
+        
+        const popup = document.createElement('div');
+        popup.className = 'trade-popup';
+        popup.style.left = (rect.left + window.scrollX) + 'px';
+        popup.style.top = (rect.top + window.scrollY) + 'px';
+        popup.style.background = type === 'BUY' ? 'var(--up)' : 'var(--down)';
+        popup.innerText = `${type} @ ${marketData[selectedId].ccu}`;
+        
+        document.body.appendChild(popup);
+        setTimeout(() => popup.remove(), 1500);
+        
+        showToast(`Ordem de ${type} executada com sucesso.`);
+    }
+
+    function showToast(msg) {
+        console.log("Terminal Log:", msg);
+    }
+
+    // Inicialização
+    initChart();
+    fetchData();
+    setInterval(fetchData, 30000); // Atualiza dados reais a cada 30s
+    
+    // Simulação de movimento por segundo (Smooth Chart)
+    setInterval(() => {
+        const data = marketData[selectedId];
+        const noise = (Math.random() - 0.5) * 50;
+        const smoothVal = data.ccu + noise;
+        data.history.push(smoothVal);
+        data.history.shift();
+        chart.update('none');
+    }, 1000);
+
+</script>
 </body>
 </html>
