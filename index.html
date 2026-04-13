@@ -3,619 +3,495 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Atlas Studios | Roblox Market Terminal</title>
+    <title>Atlas Terminal Pro | Real-Time Market</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0/dist/chartjs-plugin-annotation.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        /* --- Variáveis Profissionais --- */
         :root {
-            --bg-deep: #050b14;
-            --bg-panel: #0a1526;
-            --bg-modal: rgba(5, 11, 20, 0.85);
-            --neptune-cyan: #00f5d4;
-            --neptune-blue: #00bbf9;
-            --alert-red: #ff0054;
-            --text-main: #e0e6ed;
-            --text-muted: #7b8c9e;
-            --trend-up-bg: rgba(0, 245, 212, 0.1);
-            --trend-down-bg: rgba(255, 0, 84, 0.1);
+            --bg-base: #0b0e14;
+            --bg-surface: #151a23;
+            --bg-elevated: #1e2532;
+            --border-color: #2b3544;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --accent-cyan: #00f5d4;
+            --accent-blue: #3b82f6;
+            --trade-buy: #10b981;
+            --trade-sell: #ef4444;
+            --glass-bg: rgba(21, 26, 35, 0.85);
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', 'Segoe UI', sans-serif; }
+        body { background-color: var(--bg-base); color: var(--text-primary); display: flex; height: 100vh; overflow: hidden; font-size: 14px; }
+
+        /* --- Layout --- */
+        .sidebar { width: 260px; background: var(--bg-surface); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 10; }
+        .brand { padding: 24px; font-size: 1.2rem; font-weight: 800; color: var(--text-primary); letter-spacing: 1px; border-bottom: 1px solid var(--border-color); }
+        .brand span { color: var(--accent-cyan); }
+        .nav-menu { padding: 16px; flex: 1; }
+        .nav-item { padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; gap: 12px; transition: 0.2s; }
+        .nav-item:hover, .nav-item.active { background: rgba(0, 245, 212, 0.05); color: var(--accent-cyan); }
+        .sidebar-footer { padding: 24px; border-top: 1px solid var(--border-color); }
         
-        body { background-color: var(--bg-deep); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .top-bar { height: 60px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; padding: 0 24px; background: var(--bg-surface); }
+        .api-status { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); }
+        .pulse-dot { width: 8px; height: 8px; background: var(--trade-sell); border-radius: 50%; box-shadow: 0 0 8px var(--trade-sell); }
+        .pulse-dot.online { background: var(--trade-buy); box-shadow: 0 0 8px var(--trade-buy); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
 
-        /* Sidebar */
-        .sidebar { width: 250px; background: var(--bg-panel); border-right: 1px solid rgba(0, 245, 212, 0.1); padding: 20px; display: flex; flex-direction: column; z-index: 10; }
-        .logo { font-size: 1.5rem; font-weight: bold; color: var(--neptune-cyan); margin-bottom: 30px; text-transform: uppercase; letter-spacing: 2px; }
-        .logo span { color: var(--neptune-blue); }
-        .nav-item { padding: 12px; margin-bottom: 10px; border-radius: 8px; cursor: pointer; transition: 0.3s; color: var(--text-muted); }
-        .nav-item:hover, .nav-item.active { background: rgba(0, 245, 212, 0.1); color: var(--neptune-cyan); }
-        .login-btn-side { margin-top: auto; background: transparent; border: 1px solid var(--neptune-cyan); color: var(--neptune-cyan); padding: 10px; border-radius: 5px; cursor: pointer; text-align: center; transition: 0.3s; }
-        .login-btn-side:hover { background: var(--neptune-cyan); color: var(--bg-deep); }
+        .dashboard { flex: 1; padding: 24px; display: grid; grid-template-columns: 2.5fr 1fr; grid-template-rows: auto 1fr; gap: 20px; overflow-y: auto; }
 
-        /* Main Content */
-        .main { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; position: relative; }
-        
-        /* Layout Grids */
-        .top-row { display: flex; gap: 20px; }
-        .chart-section { flex: 2; display: flex; flex-direction: column; gap: 20px; }
-        .trade-section { flex: 1; display: flex; flex-direction: column; gap: 20px; }
-
-        /* Header Stats */
-        .header-stats { display: flex; gap: 20px; }
-        .stat-card { background: var(--bg-panel); padding: 15px; border-radius: 10px; flex: 1; border: 1px solid rgba(0, 187, 249, 0.1); transition: 0.3s; }
-        .stat-title { font-size: 0.8rem; color: var(--text-muted); }
-        .stat-value { font-size: 1.5rem; font-weight: bold; margin-top: 5px; color: var(--text-main); font-variant-numeric: tabular-nums; }
-        .trend-up { color: var(--neptune-cyan); font-size: 0.9rem; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
-        .trend-down { color: var(--alert-red); font-size: 0.9rem; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
-        .flash-up { animation: flashGreen 0.5s ease-out; }
-        .flash-down { animation: flashRed 0.5s ease-out; }
-
-        @keyframes flashGreen { 0% { background-color: var(--trend-up-bg); } 100% { background-color: var(--bg-panel); } }
-        @keyframes flashRed { 0% { background-color: var(--trend-down-bg); } 100% { background-color: var(--bg-panel); } }
+        /* --- Componentes --- */
+        .panel { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .panel-title { font-weight: 600; color: var(--text-primary); font-size: 1rem; }
 
         /* Chart Area */
-        .chart-container { background: var(--bg-panel); padding: 20px; border-radius: 10px; flex: 1; border: 1px solid rgba(0, 245, 212, 0.1); display: flex; flex-direction: column; min-height: 350px; }
-        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .live-indicator { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.85rem; margin-right: 15px; }
-        .live-dot { width: 8px; height: 8px; background-color: var(--neptune-cyan); border-radius: 50%; box-shadow: 0 0 8px var(--neptune-cyan); animation: pulse 1.5s infinite; }
+        .chart-area { grid-column: 1; grid-row: 1 / span 2; min-height: 500px; }
+        .canvas-wrapper { flex: 1; position: relative; width: 100%; min-height: 400px; }
+        .timeframe-selector button { background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 4px 12px; border-radius: 4px; cursor: pointer; transition: 0.2s; font-size: 0.8rem; }
+        .timeframe-selector button.active { background: rgba(0, 245, 212, 0.1); color: var(--accent-cyan); border-color: var(--accent-cyan); }
+
+        /* Trade Terminal */
+        .trade-terminal { grid-column: 2; grid-row: 1; }
+        .asset-price-box { margin: 16px 0; }
+        .asset-ticker { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px; }
+        .asset-price { font-size: 2.5rem; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 10px; }
+        .price-change { font-size: 1rem; padding: 4px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.1); color: var(--trade-buy); }
+        .price-change.down { background: rgba(239, 68, 68, 0.1); color: var(--trade-sell); }
         
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
-
-        .timeframes { display: flex; gap: 5px; }
-        .timeframes button { background: transparent; border: 1px solid var(--text-muted); color: var(--text-muted); padding: 5px 15px; border-radius: 5px; cursor: pointer; transition: 0.3s; }
-        .timeframes button.active, .timeframes button:hover { background: var(--neptune-blue); color: #fff; border-color: var(--neptune-blue); }
-        .canvas-wrapper { flex: 1; position: relative; }
-
-        /* Trading Panel */
-        .trade-box { background: var(--bg-panel); padding: 20px; border-radius: 10px; flex: 1; border: 1px solid rgba(0, 245, 212, 0.2); display: flex; flex-direction: column; }
-        .trade-price { font-size: 2rem; font-weight: bold; margin: 10px 0; font-variant-numeric: tabular-nums; }
-        .ai-prediction { font-size: 0.9rem; padding: 10px; background: rgba(0, 187, 249, 0.05); border-left: 3px solid var(--neptune-blue); margin-bottom: 15px; margin-top: 5px; transition: 0.3s; }
+        .ai-box { margin-top: 16px; padding: 12px; background: rgba(59, 130, 246, 0.05); border-left: 3px solid var(--accent-blue); border-radius: 0 4px 4px 0; font-size: 0.85rem; line-height: 1.4; }
         
-        .custom-predict-box { background: rgba(0,0,0,0.3); border: 1px solid rgba(123, 140, 158, 0.2); padding: 12px; border-radius: 8px; margin-bottom: 15px; }
-        .custom-predict-box label { font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 8px; }
-        .predict-inputs { display: flex; gap: 10px; }
-        .predict-inputs input { background: var(--bg-deep); border: 1px solid var(--text-muted); color: white; padding: 8px; border-radius: 5px; flex: 1; outline: none; }
-        .predict-inputs input:focus { border-color: var(--neptune-cyan); }
-        .predict-inputs button { background: transparent; border: 1px solid var(--neptune-cyan); color: var(--neptune-cyan); padding: 8px 15px; border-radius: 5px; cursor: pointer; transition: 0.2s; font-weight: bold; }
-        .predict-inputs button:hover { background: var(--neptune-cyan); color: var(--bg-deep); }
+        .btn-group { display: flex; gap: 10px; margin-top: 24px; }
+        .btn { flex: 1; padding: 12px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn-buy { background: var(--trade-buy); }
+        .btn-buy:hover { background: #059669; }
+        .btn-sell { background: var(--trade-sell); }
+        .btn-sell:hover { background: #dc2626; }
+        .btn-outline { background: transparent; border: 1px solid var(--accent-cyan); color: var(--accent-cyan); }
+        .btn-outline:hover { background: var(--accent-cyan); color: var(--bg-base); }
 
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 1rem; }
-        .btn-buy { background: var(--neptune-cyan); color: var(--bg-deep); }
-        .btn-buy:hover { box-shadow: 0 0 15px var(--neptune-cyan); }
-        .btn-sell { background: var(--alert-red); color: white; margin-top: 10px; }
-        .btn-sell:hover { box-shadow: 0 0 15px var(--alert-red); }
-
-        /* Market Watch Table */
-        .table-container { background: var(--bg-panel); padding: 20px; border-radius: 10px; border: 1px solid rgba(0, 245, 212, 0.1); overflow-y: auto; max-height: 350px;}
-        .table-container h3 { margin-bottom: 15px; color: var(--text-main); position: sticky; top: 0; background: var(--bg-panel); padding-bottom: 10px; z-index: 2; }
+        /* Watchlist Table */
+        .watchlist { grid-column: 2; grid-row: 2; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+        .table-wrapper { flex: 1; overflow-y: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; }
-        th { color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; padding: 12px 10px; border-bottom: 2px solid rgba(123, 140, 158, 0.2); position: sticky; top: 35px; background: var(--bg-panel); z-index: 2; }
-        td { padding: 12px 10px; border-bottom: 1px solid rgba(123, 140, 158, 0.1); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
-        tr { transition: 0.2s; }
-        tr:hover { background: rgba(0, 245, 212, 0.05); cursor: pointer; }
-        tr.active-row { background: rgba(0, 187, 249, 0.1); border-left: 3px solid var(--neptune-blue); }
-        .ticker-badge { background: rgba(123, 140, 158, 0.2); padding: 3px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; margin-left: 8px; color: var(--text-muted); }
-        .act-buy { color: var(--neptune-cyan); font-weight: bold; }
-        .act-sell { color: var(--alert-red); font-weight: bold; }
-        .act-hold { color: var(--text-muted); font-weight: bold; }
+        th { position: sticky; top: 0; background: var(--bg-elevated); padding: 12px 16px; color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; font-weight: 600; border-bottom: 1px solid var(--border-color); z-index: 2; }
+        td { padding: 12px 16px; border-bottom: 1px solid rgba(43, 53, 68, 0.5); font-variant-numeric: tabular-nums; }
+        tr { transition: 0.2s; cursor: pointer; }
+        tr:hover { background: var(--bg-elevated); }
+        tr.active { background: rgba(0, 245, 212, 0.05); border-left: 2px solid var(--accent-cyan); }
+        .badge { padding: 2px 6px; border-radius: 4px; background: var(--bg-elevated); font-size: 0.75rem; margin-left: 8px; border: 1px solid var(--border-color); }
 
-        /* Toggles & Modals */
-        .switch-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background: var(--bg-deep); border-radius: 5px; }
-        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--text-muted); transition: .4s; border-radius: 20px; }
-        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--neptune-cyan); }
-        input:checked + .slider:before { transform: translateX(20px); }
+        /* Modals & Toasts */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 14, 20, 0.8); backdrop-filter: blur(4px); z-index: 100; justify-content: center; align-items: center; }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: var(--bg-surface); width: 400px; padding: 24px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 20px 40px rgba(0,0,0,0.5); position: relative; }
+        .close-btn { position: absolute; top: 16px; right: 16px; cursor: pointer; color: var(--text-secondary); }
+        .input-group { margin-bottom: 16px; }
+        .input-group label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 0.85rem; }
+        .input-group input { width: 100%; padding: 10px; background: var(--bg-base); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 6px; outline: none; }
+        .input-group input:focus { border-color: var(--accent-cyan); }
 
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-modal); backdrop-filter: blur(5px); z-index: 1000; justify-content: center; align-items: center; }
-        .modal.active { display: flex; }
-        .modal-content { background: var(--bg-panel); padding: 30px; border-radius: 10px; width: 400px; border: 1px solid var(--neptune-blue); position: relative; }
-        .close-modal { position: absolute; top: 15px; right: 15px; cursor: pointer; color: var(--text-muted); font-size: 1.2rem; }
-        
-        #toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 9999; }
-        .toast { background: var(--bg-panel); border-left: 4px solid var(--neptune-cyan); padding: 15px 20px; border-radius: 5px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); color: #fff; animation: slideIn 0.3s ease-out; display: flex; align-items: center; gap: 15px; }
-        .toast.sell-alert { border-left-color: var(--alert-red); }
+        #toast-container { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 10px; z-index: 999; }
+        .toast { background: var(--bg-elevated); border-left: 4px solid var(--accent-cyan); padding: 16px; border-radius: 6px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 12px; animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .toast.error { border-left-color: var(--trade-sell); }
+        .toast.success { border-left-color: var(--trade-buy); }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* Toggles */
+        .switch { position: relative; display: inline-block; width: 36px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border-color); transition: .3s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent-cyan); }
+        input:checked + .slider:before { transform: translateX(16px); }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-color); }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
-        <div class="logo">Atlas <span>Studios</span></div>
-        <div class="nav-item active"><i class="fas fa-chart-line"></i> Market Terminal</div>
-        <div class="nav-item"><i class="fas fa-wallet"></i> My Portfolio</div>
-        <div class="nav-item" onclick="openModal('settingsModal')"><i class="fas fa-cog"></i> Settings</div>
-        
-        <div class="login-btn-side" onclick="openModal('loginModal')"><i class="fas fa-user"></i> Login</div>
+        <div class="brand"><i class="fas fa-layer-group"></i> Atlas <span>Pro</span></div>
+        <div class="nav-menu">
+            <div class="nav-item active"><i class="fas fa-chart-candlestick"></i> Terminal de Trade</div>
+            <div class="nav-item" onclick="openModal('settingsModal')"><i class="fas fa-sliders-h"></i> Preferências IA</div>
+        </div>
+        <div class="sidebar-footer">
+            <button class="btn btn-outline" style="width: 100%" onclick="openModal('loginModal')">
+                <i class="fas fa-user-circle"></i> Fazer Login
+            </button>
+        </div>
     </div>
 
-    <div class="main">
-        <div class="header-stats" id="global-stats">
+    <div class="main-content">
+        <div class="top-bar">
+            <h2 style="font-size: 1.1rem; font-weight: 500;">Live Market Watch</h2>
+            <div class="api-status">
+                <div class="pulse-dot" id="status-dot"></div>
+                <span id="status-text">Aguardando Conexão API...</span>
             </div>
+        </div>
 
-        <div class="top-row">
-            <div class="chart-section">
-                <div class="chart-container">
-                    <div class="chart-header">
-                        <h3>Volume Analytics & AI Forecast</h3>
-                        <div style="display: flex; align-items: center;">
-                            <div class="live-indicator"><div class="live-dot"></div> Live Data</div>
-                            <div class="timeframes" id="timeframe-buttons">
-                                <button class="active" data-time="1M">1M</button>
-                                <button data-time="1H">1H</button>
-                                <button data-time="1D">1D</button>
-                            </div>
-                        </div>
+        <div class="dashboard">
+            <div class="panel chart-area">
+                <div class="panel-header">
+                    <span class="panel-title" id="chart-title">Análise de Volume - Select Asset</span>
+                    <div class="timeframe-selector">
+                        <button class="active">1M (Live)</button>
+                        <button disabled title="Requer histórico de BD contínuo">1H</button>
                     </div>
-                    <div class="canvas-wrapper">
-                        <canvas id="marketChart"></canvas>
-                    </div>
+                </div>
+                <div class="canvas-wrapper">
+                    <canvas id="marketChart"></canvas>
                 </div>
             </div>
 
-            <div class="trade-section">
-                <div class="trade-box" id="dynamic-trade-box">
-                    <h3>Interactive Terminal</h3>
-                    
-                    <h2 id="trade-asset-title" style="margin-top: 10px; color: var(--neptune-cyan);">Blox Fruits ($BLXF)</h2>
-                    <div class="trade-price" id="trade-current-price">0</div>
-                    
-                    <div class="ai-prediction" id="trade-ai-pred">
-                        <strong><i class="fas fa-brain"></i> Atlas AI Analysis:</strong> Calculando...
+            <div class="panel trade-terminal">
+                <div class="panel-header"><span class="panel-title">Execução Rápida</span></div>
+                
+                <div class="asset-price-box">
+                    <div class="asset-ticker" id="trade-name">Selecione um ativo na tabela</div>
+                    <div class="asset-price">
+                        <span id="trade-price">0</span>
+                        <span class="price-change" id="trade-change">+0.00%</span>
                     </div>
+                </div>
 
-                    <div class="custom-predict-box">
-                        <label><i class="fas fa-clock"></i> Previsão Específica de Margem (IA)</label>
-                        <div class="predict-inputs">
-                            <input type="time" id="target-time">
-                            <button onclick="predictCustomTime()"><i class="fas fa-bolt"></i> Prever</button>
-                        </div>
-                        <div id="predict-result" style="margin-top: 10px; font-size: 0.85rem; display: none;"></div>
-                    </div>
-                    
-                    <button class="btn btn-buy" onclick="executeDynamicTrade('BUY')">COMPRAR POSIÇÃO</button>
-                    <button class="btn btn-sell" onclick="executeDynamicTrade('SELL')">LIQUIDAR POSIÇÃO</button>
+                <div class="ai-box" id="ai-insight">
+                    <strong><i class="fas fa-brain"></i> Atlas IA:</strong> Coletando dados do Supabase para gerar previsão técnica...
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-buy" onclick="executeTrade('BUY')">COMPRAR</button>
+                    <button class="btn btn-sell" onclick="executeTrade('SELL')">LIQUIDAR</button>
+                </div>
+            </div>
+
+            <div class="panel watchlist">
+                <div class="panel-header" style="padding: 20px 20px 0 20px;">
+                    <span class="panel-title">Ativos Oficiais (Roblox API)</span>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Ativo</th><th>Live CCU</th><th>Trend</th></tr></thead>
+                        <tbody id="market-tbody">
+                            </tbody>
+                    </table>
                 </div>
             </div>
         </div>
+    </div>
 
-        <div class="table-container">
-            <h3>Top 20 Market Watch (Live Assets)</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Ativo (Jogo)</th>
-                        <th>Live CCU (Vol)</th>
-                        <th>Trend</th>
-                        <th>AI Status</th>
-                        <th>Ação Recomendada</th>
-                    </tr>
-                </thead>
-                <tbody id="market-tbody">
-                    </tbody>
-            </table>
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal-content">
+            <i class="fas fa-times close-btn" onclick="closeModal('loginModal')"></i>
+            <h2 style="margin-bottom: 20px;">Acesso ao Terminal</h2>
+            <div class="input-group">
+                <label>E-mail de Operador</label>
+                <input type="email" placeholder="operador@atlas.com">
+            </div>
+            <div class="input-group">
+                <label>Senha Segura</label>
+                <input type="password" placeholder="••••••••">
+            </div>
+            <button class="btn btn-buy" style="width: 100%; margin-top: 10px;" onclick="doLogin()">Autenticar</button>
         </div>
     </div>
 
-    <div id="settingsModal" class="modal">
+    <div class="modal-overlay" id="settingsModal">
         <div class="modal-content">
-            <i class="fas fa-times close-modal" onclick="closeModal('settingsModal')"></i>
-            <h2>Configurações do Gráfico</h2>
-            <div class="switch-wrapper">
-                <span>Linha de Previsão IA</span>
-                <label class="switch"><input type="checkbox" id="toggleAiLine" checked onchange="toggleChartFeatures()"><span class="slider"></span></label>
+            <i class="fas fa-times close-btn" onclick="closeModal('settingsModal')"></i>
+            <h2 style="margin-bottom: 20px;">Configurações do Gráfico</h2>
+            <div class="setting-row">
+                <span>Projeção Algorítmica (IA)</span>
+                <label class="switch"><input type="checkbox" id="toggleAi" checked onchange="app.updateChart()"><span class="slider"></span></label>
             </div>
-            <div class="switch-wrapper">
-                <span>Marcadores de Operação (Buy/Sell)</span>
-                <label class="switch"><input type="checkbox" id="toggleMarkers" checked onchange="toggleChartFeatures()"><span class="slider"></span></label>
+            <div class="setting-row">
+                <span>Marcadores de Operação</span>
+                <label class="switch"><input type="checkbox" id="toggleMarkers" checked onchange="app.updateChart()"><span class="slider"></span></label>
             </div>
-        </div>
-    </div>
-
-    <div id="loginModal" class="modal">
-        <div class="modal-content">
-            <i class="fas fa-times close-modal" onclick="closeModal('loginModal')"></i>
-            <h2>Atlas Login</h2>
-            <button class="btn btn-buy" style="margin-top: 20px;" onclick="closeModal('loginModal')">Autenticar Sistema</button>
         </div>
     </div>
 
     <div id="toast-container"></div>
 
     <script>
-        /**
-         * ATLAS MARKET ENGINE
-         * Para integração real no futuro, substitua a classe MarketDataService 
-         * por chamadas Fetch à API do Roblox (via backend proxy).
-         */
-
-        const top20Assets = [
-            { id: 1, name: "Blox Fruits", ticker: "BLXF", baseCcu: 845000, volatility: 0.0001, trendBias: 1.02 },
-            { id: 2, name: "Brookhaven RP", ticker: "BRKH", baseCcu: 620000, volatility: 0.00005, trendBias: 1.01 },
-            { id: 3, name: "Adopt Me!", ticker: "ADPT", baseCcu: 250000, volatility: 0.0002, trendBias: 0.98 },
-            { id: 4, name: "Murder Mystery 2", ticker: "MM2X", baseCcu: 180000, volatility: 0.0003, trendBias: 1.05 },
-            { id: 5, name: "Pet Simulator 99", ticker: "PETS", baseCcu: 150000, volatility: 0.00015, trendBias: 1.0 },
-            { id: 6, name: "Blade Ball", ticker: "BLDE", baseCcu: 85000, volatility: 0.0004, trendBias: 0.92 },
-            { id: 7, name: "Anime Defenders", ticker: "ANMD", baseCcu: 110000, volatility: 0.0003, trendBias: 1.08 },
-            { id: 8, name: "Doors", ticker: "DORS", baseCcu: 95000, volatility: 0.0001, trendBias: 1.01 },
-            { id: 9, name: "BedWars", ticker: "BEDW", baseCcu: 85000, volatility: 0.0002, trendBias: 0.99 },
-            { id: 10, name: "Pls Donate", ticker: "PLSD", baseCcu: 75000, volatility: 0.0005, trendBias: 1.15 },
-            { id: 11, name: "Tower Defense Sim", ticker: "TDSX", baseCcu: 60000, volatility: 0.0001, trendBias: 1.0 },
-            { id: 12, name: "Da Hood", ticker: "DAHD", baseCcu: 55000, volatility: 0.0002, trendBias: 0.95 },
-            { id: 13, name: "King Legacy", ticker: "KGLG", baseCcu: 52000, volatility: 0.00025, trendBias: 1.02 },
-            { id: 14, name: "Natural Disaster", ticker: "NDSV", baseCcu: 48000, volatility: 0.00005, trendBias: 1.0 },
-            { id: 15, name: "Arsenal", ticker: "ARSN", baseCcu: 45000, volatility: 0.00015, trendBias: 0.98 },
-            { id: 16, name: "Bee Swarm Sim", ticker: "BEE", baseCcu: 40000, volatility: 0.0001, trendBias: 1.0 },
-            { id: 17, name: "Jailbreak", ticker: "JLBK", baseCcu: 35000, volatility: 0.0001, trendBias: 0.97 },
-            { id: 18, name: "Bloxburg", ticker: "BLXB", baseCcu: 30000, volatility: 0.00005, trendBias: 0.94 },
-            { id: 19, name: "All Star Tower Def", ticker: "ASTD", baseCcu: 25000, volatility: 0.0002, trendBias: 1.01 },
-            { id: 20, name: "Piggy", ticker: "PGGY", baseCcu: 20000, volatility: 0.0001, trendBias: 0.96 }
+        // ==========================================
+        // CONFIGURAÇÕES GERAIS
+        // ==========================================
+        // ATENÇÃO: COLOQUE A URL DA SUA EDGE FUNCTION AQUI
+        const SUPABASE_URL = "https://xjgdtwevqrrnorgzelrz.supabase.co/functions/v1/roblox-proxy"; 
+        
+        const ASSETS = [
+            { id: 1119586118, name: "Blox Fruits", ticker: "BLXF" },
+            { id: 1702695413, name: "Brookhaven", ticker: "BRKH" },
+            { id: 332284684, name: "Adopt Me!", ticker: "ADPT" },
+            { id: 66654135, name: "Murder Mystery 2", ticker: "MM2X" },
+            { id: 2603415162, name: "BedWars", ticker: "BEDW" },
+            { id: 4982631553, name: "Pet Simulator 99", ticker: "PETS" },
+            { id: 1117315504, name: "Arsenal", ticker: "ARSN" },
+            { id: 606849621, name: "Jailbreak", ticker: "JLBK" }
         ];
 
-        // Estado da Aplicação
-        let activeAssetTicker = top20Assets[0].ticker;
-        let currentTimeframe = "1M";
-        let lastBuyPrices = {}; 
-        let assetAnnotations = {}; 
-        
-        // --- SERVIÇO DE DADOS DE MERCADO (Simulação de Alta Precisão) ---
-        class MarketDataService {
+        // ==========================================
+        // LÓGICA DO APLICATIVO (OOP)
+        // ==========================================
+        class AtlasTerminal {
             constructor() {
-                this.liveData = {};
-                this.historyCache = {};
-                this.initializeData();
+                this.activeAsset = ASSETS[0].id;
+                this.marketData = {}; // Guarda { targetCcu, currentCcu, history: [] }
+                this.annotations = {}; // Posições de compra { assetId: { id: config } }
+                this.positions = {}; // Posições abertas { assetId: price }
+                
+                ASSETS.forEach(a => {
+                    this.marketData[a.id] = { targetCcu: 0, currentCcu: 0, history: new Array(60).fill(null), startCcu: 0 };
+                    this.annotations[a.id] = {};
+                });
+
+                this.initChart();
+                this.startHybridEngine();
             }
 
-            initializeData() {
-                top20Assets.forEach(asset => {
-                    // Estado live atual do ativo
-                    this.liveData[asset.ticker] = {
-                        currentCcu: asset.baseCcu,
-                        trendPercent: ((asset.trendBias - 1) * 100).toFixed(2),
-                        history1M: this.generateRandomWalk(asset, 60, 1), // 60 pontos, a cada seg
-                        history1H: this.generateRandomWalk(asset, 60, 60), // 60 pontos, a cada min
-                        history1D: this.generateRandomWalk(asset, 24, 3600) // 24 pontos, a cada hora
+            initChart() {
+                const ctx = document.getElementById('marketChart').getContext('2d');
+                Chart.defaults.color = '#9ca3af';
+                Chart.defaults.font.family = "'Inter', sans-serif";
+
+                this.chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: new Array(60).fill('').map((_, i) => `${60 - i}s`),
+                        datasets: [
+                            { label: 'Live Volume', data: [], borderColor: '#00f5d4', backgroundColor: 'rgba(0, 245, 212, 0.05)', fill: true, tension: 0.2, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5 },
+                            { label: 'Projeção IA', data: [], borderColor: 'rgba(59, 130, 246, 0.8)', borderDash: [5, 5], tension: 0.2, borderWidth: 2, pointRadius: 0 }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, animation: false,
+                        interaction: { intersect: false, mode: 'index' },
+                        plugins: { legend: { display: false }, annotation: { annotations: {} } },
+                        scales: { x: { grid: { display: false } }, y: { grid: { color: 'rgba(43, 53, 68, 0.5)' }, position: 'right' } }
+                    }
+                });
+            }
+
+            // Motor Híbrido: Fetch a cada 30s + Interpolation por segundo
+            startHybridEngine() {
+                // Poll real API
+                this.fetchApiData();
+                setInterval(() => this.fetchApiData(), 30000);
+
+                // Tick local (1s) para gerar "vida" no gráfico conectando os pontos reais
+                setInterval(() => this.tickLocal(), 1000);
+            }
+
+            async fetchApiData() {
+                const dot = document.getElementById('status-dot');
+                const txt = document.getElementById('status-text');
+                try {
+                    dot.classList.remove('online'); dot.style.background = 'yellow';
+                    txt.innerText = "Sincronizando com Supabase...";
+
+                    const ids = ASSETS.map(a => a.id).join(',');
+                    // Simulação fallback caso a API não esteja configurada pelo usuário ainda:
+                    let realData = [];
+                    if (SUPABASE_URL.includes("SEU_PROJETO")) {
+                         // Fallback Mock se URL não foi trocada
+                         realData = ASSETS.map(a => ({ id: a.id, playing: Math.floor(Math.random() * 100000) + 50000 }));
+                    } else {
+                        const res = await fetch(`${SUPABASE_URL}?universeIds=${ids}`);
+                        if (!res.ok) throw new Error("HTTP error");
+                        const json = await res.json();
+                        realData = json.data;
+                    }
+
+                    // Atualiza os Targets
+                    realData.forEach(game => {
+                        const data = this.marketData[game.id];
+                        if (data) {
+                            if (data.currentCcu === 0) { data.currentCcu = game.playing; data.startCcu = game.playing; }
+                            data.targetCcu = game.playing;
+                        }
+                    });
+
+                    dot.classList.add('online'); dot.style.background = '';
+                    txt.innerText = "API Conectada (Live)";
+                } catch (error) {
+                    console.error("API Error:", error);
+                    dot.classList.remove('online'); dot.style.background = 'var(--trade-sell)';
+                    txt.innerText = "Erro de Conexão";
+                }
+            }
+
+            tickLocal() {
+                ASSETS.forEach(asset => {
+                    const data = this.marketData[asset.id];
+                    if (data.targetCcu === 0) return; // Aguardando primeiro fetch
+
+                    // Passeio aleatório em direção ao Target Real
+                    const diff = data.targetCcu - data.currentCcu;
+                    const step = diff * 0.1; // Move 10% da diferença por segundo
+                    const noise = (Math.random() - 0.5) * (data.targetCcu * 0.001); // Ruído minúsculo (0.1%)
+                    
+                    data.currentCcu = Math.round(data.currentCcu + step + noise);
+                    
+                    data.history.shift();
+                    data.history.push(data.currentCcu);
+                });
+
+                this.updateUI();
+            }
+
+            // "IA" Matemática: Regressão Linear Simples
+            calculateAI(history) {
+                const validData = history.filter(v => v !== null);
+                if (validData.length < 10) return { forecast: [], signal: 'Aguardando dados', trend: 0 };
+                
+                const last = validData[validData.length - 1];
+                const start = validData[Math.max(0, validData.length - 15)]; // Tendência dos últimos 15s
+                const slope = (last - start) / 15;
+                
+                let forecast = new Array(60).fill(null);
+                forecast[59] = last;
+                for(let i=1; i<=5; i++) forecast.push(last + (slope * i * 3)); // Projeta à frente
+                
+                return { 
+                    forecast, 
+                    signal: slope > 5 ? 'COMPRA FORTE' : (slope < -5 ? 'VENDA FORTE' : 'ACUMULAÇÃO'),
+                    trend: slope
+                };
+            }
+
+            updateUI() {
+                // Atualiza Tabela
+                const tbody = document.getElementById('market-tbody');
+                tbody.innerHTML = '';
+                ASSETS.forEach(asset => {
+                    const data = this.marketData[asset.id];
+                    if(data.currentCcu === 0) return;
+
+                    const change = (((data.currentCcu - data.startCcu) / data.startCcu) * 100) || 0;
+                    const color = change >= 0 ? 'var(--trade-buy)' : 'var(--trade-sell)';
+                    const tr = document.createElement('tr');
+                    if (asset.id === this.activeAsset) tr.classList.add('active');
+                    tr.onclick = () => { this.activeAsset = asset.id; this.updateUI(); };
+                    
+                    tr.innerHTML = `
+                        <td>${asset.ticker} <span class="badge">${asset.name.substring(0,8)}.</span></td>
+                        <td style="font-weight: 600;">${data.currentCcu.toLocaleString('en-US')}</td>
+                        <td style="color: ${color}">${change >= 0 ? '+' : ''}${change.toFixed(2)}%</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                // Atualiza Terminal (Painel Central)
+                const activeData = this.marketData[this.activeAsset];
+                const activeInfo = ASSETS.find(a => a.id === this.activeAsset);
+                if(activeData && activeData.currentCcu > 0) {
+                    const change = (((activeData.currentCcu - activeData.startCcu) / activeData.startCcu) * 100) || 0;
+                    const changeEl = document.getElementById('trade-change');
+                    
+                    document.getElementById('trade-name').innerText = `${activeInfo.name} ($${activeInfo.ticker})`;
+                    document.getElementById('trade-price').innerText = activeData.currentCcu.toLocaleString('en-US');
+                    changeEl.innerText = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+                    changeEl.className = `price-change ${change < 0 ? 'down' : ''}`;
+
+                    const ai = this.calculateAI(activeData.history);
+                    const aiBox = document.getElementById('ai-insight');
+                    if(ai.trend > 0) {
+                        aiBox.innerHTML = `<strong><i class="fas fa-brain"></i> Análise IA:</strong> Algoritmo detecta momento positivo. Sinal de <strong>${ai.signal}</strong>.`;
+                        aiBox.style.borderLeftColor = 'var(--trade-buy)';
+                    } else {
+                        aiBox.innerHTML = `<strong><i class="fas fa-brain"></i> Análise IA:</strong> Algoritmo detecta contração de volume. Sinal de <strong>${ai.signal}</strong>.`;
+                        aiBox.style.borderLeftColor = ai.trend < 0 ? 'var(--trade-sell)' : 'var(--accent-blue)';
+                    }
+
+                    this.updateChart(activeData.history, ai.forecast, activeInfo.ticker);
+                }
+            }
+
+            updateChart(historyData = null, forecastData = null, ticker = null) {
+                if(!historyData) historyData = this.marketData[this.activeAsset].history;
+                if(!ticker) ticker = ASSETS.find(a => a.id === this.activeAsset).ticker;
+
+                this.chart.data.datasets[0].data = historyData;
+                this.chart.data.datasets[0].label = `Vol ${ticker}`;
+                
+                const showAi = document.getElementById('toggleAi').checked;
+                this.chart.data.datasets[1].data = showAi && forecastData ? forecastData : [];
+
+                const showMarkers = document.getElementById('toggleMarkers').checked;
+                this.chart.options.plugins.annotation.annotations = showMarkers ? (this.annotations[this.activeAsset] || {}) : {};
+
+                // Ajusta labels se houver forecast
+                let labels = new Array(60).fill('').map((_, i) => `${60 - i}s`);
+                if(showAi) { for(let i=1; i<=5; i++) labels.push(`+${i}s`); }
+                this.chart.data.labels = labels;
+
+                this.chart.update();
+            }
+
+            executeTrade(type) {
+                const currentPrice = this.marketData[this.activeAsset].currentCcu;
+                if(currentPrice === 0) return showToast("Aguarde a conexão com a API.", "error");
+
+                if (type === 'BUY') {
+                    if(this.positions[this.activeAsset]) return showToast("Você já possui uma posição aberta neste ativo.", "error");
+                    
+                    this.positions[this.activeAsset] = currentPrice;
+                    const id = `buy-${Date.now()}`;
+                    this.annotations[this.activeAsset][id] = {
+                        type: 'line', xMin: 59, xMax: 59,
+                        borderColor: 'var(--trade-buy)', borderWidth: 2, borderDash: [4, 4],
+                        label: { display: true, content: `BUY: ${currentPrice}`, backgroundColor: 'var(--trade-buy)', color: '#fff', position: 'start' }
                     };
-                });
-            }
-
-            // Algoritmo profissional de Random Walk Suavizado para simular CCU
-            generateRandomWalk(asset, points, timeStep) {
-                let data = [];
-                let current = asset.baseCcu * (1 + (Math.random() * 0.1 - 0.05)); // Start price offset
+                    showToast(`Ordem de COMPRA executada para $${ASSETS.find(a=>a.id===this.activeAsset).ticker}.`, "success");
                 
-                for (let i = 0; i < points; i++) {
-                    // Maior timestep = maior variação permitida entre pontos
-                    let stepVariance = asset.volatility * timeStep * current; 
-                    let change = (Math.random() * 2 - 1) * stepVariance;
+                } else {
+                    const entryPrice = this.positions[this.activeAsset];
+                    if(!entryPrice) return showToast("Nenhuma posição aberta para liquidar.", "error");
+
+                    const pnl = (((currentPrice - entryPrice) / entryPrice) * 100).toFixed(2);
+                    const isProfit = pnl >= 0;
+                    const id = `sell-${Date.now()}`;
                     
-                    // Adiciona tendência leve
-                    change += (asset.trendBias > 1 ? 1 : -1) * (stepVariance * 0.1);
-
-                    current += change;
-                    data.push(Math.round(current));
-                }
-                return data;
-            }
-
-            // Ticker que atualiza a "API" a cada segundo
-            tick() {
-                top20Assets.forEach(asset => {
-                    let d = this.liveData[asset.ticker];
-                    let variance = asset.baseCcu * asset.volatility;
-                    let change = (Math.random() * 2 - 1) * variance;
+                    this.annotations[this.activeAsset][id] = {
+                        type: 'line', xMin: 59, xMax: 59,
+                        borderColor: isProfit ? 'var(--trade-buy)' : 'var(--trade-sell)', borderWidth: 2, borderDash: [4, 4],
+                        label: { display: true, content: `SELL (P&L: ${pnl}%)`, backgroundColor: isProfit ? 'var(--trade-buy)' : 'var(--trade-sell)', color: '#fff', position: 'end' }
+                    };
                     
-                    d.currentCcu = Math.round(d.currentCcu + change);
-                    
-                    // Atualiza o histórico de 1 Minuto (tira o mais velho, põe o novo)
-                    d.history1M.shift();
-                    d.history1M.push(d.currentCcu);
-                });
-            }
-
-            getAssetData(ticker) { return this.liveData[ticker]; }
-            getAssetInfo(ticker) { return top20Assets.find(a => a.ticker === ticker); }
-            
-            // Projeção de IA baseada em Médias Móveis Simplificada
-            getAIForecast(historyArray) {
-                let forecast = new Array(historyArray.length).fill(null);
-                let lastVal = historyArray[historyArray.length - 1];
-                let firstVal = historyArray[Math.floor(historyArray.length / 2)];
-                let slope = (lastVal - firstVal) / (historyArray.length / 2);
-                
-                // Ponto inicial do Forecast
-                forecast[historyArray.length - 1] = lastVal;
-                
-                // Prever 10 pontos à frente
-                for(let i = 1; i <= 10; i++) {
-                    forecast.push(Math.round(lastVal + (slope * i) + (Math.random() * slope * 0.5)));
+                    showToast(`Posição liquidada. Retorno: ${pnl}%`, isProfit ? "success" : "error");
+                    delete this.positions[this.activeAsset];
                 }
-                return forecast;
+                this.updateChart();
             }
         }
 
-        const marketApi = new MarketDataService();
-
-        // --- RENDERIZAÇÃO DA INTERFACE ---
-
-        function renderGlobalStats() {
-            const statsContainer = document.getElementById('global-stats');
-            const top3 = top20Assets.slice(0, 3);
-            
-            let html = '';
-            top3.forEach(asset => {
-                let data = marketApi.getAssetData(asset.ticker);
-                let trendClass = data.trendPercent >= 0 ? 'trend-up' : 'trend-down';
-                let icon = data.trendPercent >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
-                let signal = data.trendPercent >= 0 ? '+' : '';
-                
-                html += `
-                    <div class="stat-card" id="stat-${asset.ticker}">
-                        <div class="stat-title">${asset.name} ($${asset.ticker})</div>
-                        <div class="stat-value" id="stat-val-${asset.ticker}">${data.currentCcu.toLocaleString('en-US')}</div>
-                        <div class="${trendClass}"><i class="fas ${icon}"></i> ${signal}${data.trendPercent}%</div>
-                    </div>
-                `;
-            });
-
-            // Card Global
-            html += `
-                <div class="stat-card">
-                    <div class="stat-title">Market Trend (Roblox)</div>
-                    <div class="stat-value" style="color: var(--neptune-cyan);">BULLISH</div>
-                    <div class="trend-up"><i class="fas fa-chart-line"></i> Alto Volume Global</div>
-                </div>
-            `;
-            statsContainer.innerHTML = html;
-        }
-
-        function renderMarketTable() {
-            const tbody = document.getElementById('market-tbody');
-            tbody.innerHTML = '';
-            
-            top20Assets.forEach(asset => {
-                let data = marketApi.getAssetData(asset.ticker);
-                const tr = document.createElement('tr');
-                tr.id = `row-${asset.ticker}`;
-                if(asset.ticker === activeAssetTicker) tr.classList.add('active-row');
-                
-                tr.onclick = () => selectAssetForTrade(asset.ticker);
-                
-                const trendNum = parseFloat(data.trendPercent);
-                const trendColor = trendNum > 0 ? 'var(--neptune-cyan)' : (trendNum < 0 ? 'var(--alert-red)' : 'var(--text-muted)');
-                const trendIcon = trendNum > 0 ? 'fa-arrow-up' : (trendNum < 0 ? 'fa-arrow-down' : 'fa-minus');
-                let aiAction = trendNum > 1 ? "BUY" : (trendNum < -1 ? "SELL" : "HOLD");
-                let actionClass = trendNum > 1 ? "act-buy" : (trendNum < -1 ? "act-sell" : "act-hold");
-
-                tr.innerHTML = `
-                    <td>${asset.name} <span class="ticker-badge">${asset.ticker}</span></td>
-                    <td id="table-val-${asset.ticker}" style="font-weight: bold; color: var(--text-main);">${data.currentCcu.toLocaleString('en-US')}</td>
-                    <td style="color: ${trendColor};"><i class="fas ${trendIcon}"></i> ${trendNum > 0 ? '+' : ''}${data.trendPercent}%</td>
-                    <td>${trendNum > 0 ? 'Bullish' : 'Bearish'}</td>
-                    <td class="${actionClass}">${aiAction}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        // --- CONFIGURAÇÃO DO GRÁFICO (Chart.js) ---
-        const ctx = document.getElementById('marketChart').getContext('2d');
-        Chart.defaults.color = '#7b8c9e';
-        Chart.defaults.font.family = "'Segoe UI', sans-serif";
-        
-        let marketChart = new Chart(ctx, {
-            type: 'line',
-            data: { labels: [], datasets: [
-                { label: 'Real Volume', data: [], borderColor: '#00f5d4', tension: 0.1, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4 },
-                { label: 'AI Forecast', data: [], borderColor: 'rgba(0, 187, 249, 0.6)', borderDash: [5, 5], tension: 0.1, borderWidth: 2, pointRadius: 0 }
-            ]},
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                animation: false, // Desligado para atualizar live suavemente
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { position: 'top', labels: { color: '#e0e6ed' } },
-                    annotation: { annotations: {} },
-                    tooltip: { backgroundColor: 'rgba(5, 11, 20, 0.9)', titleColor: '#00f5d4', bodyColor: '#fff', borderColor: '#00bbf9', borderWidth: 1 }
-                },
-                scales: { 
-                    y: { beginAtZero: false, grid: { color: 'rgba(123, 140, 158, 0.1)' } },
-                    x: { grid: { display: false } }
-                }
-            }
-        });
-
-        function generateLabels(timeframe, length) {
-            let labels = [];
-            let now = new Date();
-            for(let i = length - 1; i >= 0; i--) {
-                let d = new Date(now);
-                if(timeframe === '1M') d.setSeconds(now.getSeconds() - i);
-                else if(timeframe === '1H') d.setMinutes(now.getMinutes() - i);
-                else if(timeframe === '1D') d.setHours(now.getHours() - i);
-                
-                labels.push(`${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}${timeframe==='1M'?':'+d.getSeconds().toString().padStart(2,'0'):''}`);
-            }
-            // Add labels for forecast
-            for(let i = 1; i <= 10; i++) { labels.push(`+${i}`); }
-            return labels;
-        }
-
-        function updateChartDisplay() {
-            let data = marketApi.getAssetData(activeAssetTicker);
-            let historyKey = `history${currentTimeframe}`;
-            let historyData = [...data[historyKey]]; // Clone
-            
-            marketChart.data.labels = generateLabels(currentTimeframe, historyData.length);
-            marketChart.data.datasets[0].data = historyData;
-            marketChart.data.datasets[0].label = `Volume (${activeAssetTicker})`;
-            
-            marketChart.data.datasets[1].data = marketApi.getAIForecast(historyData);
-            marketChart.data.datasets[1].label = `AI Prediction`;
-            
-            if(document.getElementById('toggleMarkers').checked) {
-                marketChart.options.plugins.annotation.annotations = assetAnnotations[activeAssetTicker] || {};
-            } else {
-                marketChart.options.plugins.annotation.annotations = {};
-            }
-            
-            marketChart.update();
-        }
-
-        // --- NAVEGAÇÃO E AÇÕES ---
-
-        function selectAssetForTrade(ticker) {
-            document.querySelectorAll('#market-tbody tr').forEach(tr => tr.classList.remove('active-row'));
-            document.getElementById(`row-${ticker}`).classList.add('active-row');
-            
-            activeAssetTicker = ticker;
-            let assetInfo = marketApi.getAssetInfo(ticker);
-            let data = marketApi.getAssetData(ticker);
-            
-            document.getElementById('trade-asset-title').innerText = `${assetInfo.name} ($${assetInfo.ticker})`;
-            
-            const predBox = document.getElementById('trade-ai-pred');
-            const trendNum = parseFloat(data.trendPercent);
-            
-            if (trendNum > 1) {
-                predBox.innerHTML = `<strong><i class="fas fa-brain"></i> IA:</strong> Fluxo em expansão. Entrada tática recomendada.`;
-                predBox.style.borderLeftColor = 'var(--neptune-cyan)';
-            } else if (trendNum < -1) {
-                predBox.innerHTML = `<strong><i class="fas fa-brain"></i> IA:</strong> Retração de usuários ativa. Evitar compras.`;
-                predBox.style.borderLeftColor = 'var(--alert-red)';
-            } else {
-                predBox.innerHTML = `<strong><i class="fas fa-brain"></i> IA:</strong> Mercado lateralizado. Acumulação em andamento.`;
-                predBox.style.borderLeftColor = 'var(--text-muted)';
-            }
-            
-            updateChartDisplay();
-        }
-
-        // --- SISTEMA LIVE (TICKER) ---
-        setInterval(() => {
-            marketApi.tick(); // Roda o motor de dados
-            
-            // Atualiza UI do ativo ativo
-            let activeData = marketApi.getAssetData(activeAssetTicker);
-            document.getElementById('trade-current-price').innerText = activeData.currentCcu.toLocaleString('en-US');
-            
-            // Atualiza Tabela e Gráfico em tempo real
-            top20Assets.forEach(asset => {
-                let d = marketApi.getAssetData(asset.ticker);
-                let tableCell = document.getElementById(`table-val-${asset.ticker}`);
-                if(tableCell) tableCell.innerText = d.currentCcu.toLocaleString('en-US');
-                
-                let statCell = document.getElementById(`stat-val-${asset.ticker}`);
-                if(statCell) statCell.innerText = d.currentCcu.toLocaleString('en-US');
-            });
-            
-            // Só atualiza o gráfico contínuamente se estiver no 1M (para dar sensação de Live)
-            if(currentTimeframe === '1M') updateChartDisplay();
-
-        }, 1000); // 1 Tick por segundo
-
-        // --- CONTROLES DE INTERFACE ---
-        
-        document.querySelectorAll('.timeframes button').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.timeframes button').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                currentTimeframe = e.target.getAttribute('data-time');
-                updateChartDisplay();
-            });
-        });
-
-        function toggleChartFeatures() {
-            const showAi = document.getElementById('toggleAiLine').checked;
-            marketChart.data.datasets[1].hidden = !showAi;
-            updateChartDisplay();
-        }
-
-        // Operações Independentes por Ativo
-        function executeDynamicTrade(type) {
-            const now = new Date();
-            const currentPrice = marketApi.getAssetData(activeAssetTicker).currentCcu;
-
-            if (!assetAnnotations[activeAssetTicker]) {
-                assetAnnotations[activeAssetTicker] = {};
-            }
-
-            if (type === 'BUY') {
-                lastBuyPrices[activeAssetTicker] = currentPrice;
-                const id = `buy-${Date.now()}`;
-                
-                // Posição no gráfico: penúltimo index antes do forecast
-                let dataLen = marketChart.data.datasets[0].data.length;
-                let xIndex = dataLen > 0 ? dataLen - 1 : 0;
-
-                assetAnnotations[activeAssetTicker][id] = {
-                    type: 'line', xMin: xIndex, xMax: xIndex,
-                    borderColor: 'var(--neptune-cyan)', borderWidth: 2, borderDash: [4, 4],
-                    label: { display: true, content: `BUY: ${currentPrice}`, backgroundColor: 'var(--neptune-cyan)', color: '#000', position: 'start' }
-                };
-                
-                showToast(`COMPRA: $${activeAssetTicker} executada. Volume: ${currentPrice}.`, 'normal');
-            } else {
-                const buyPrice = lastBuyPrices[activeAssetTicker];
-                if (!buyPrice) return showToast(`Erro: Nenhuma posição aberta para $${activeAssetTicker}.`, 'sell');
-                
-                const profitPercent = (((currentPrice - buyPrice) / buyPrice) * 100).toFixed(3);
-                const profitColor = profitPercent >= 0 ? 'var(--neptune-cyan)' : 'var(--alert-red)';
-                const id = `sell-${Date.now()}`;
-                
-                let dataLen = marketChart.data.datasets[0].data.length;
-                let xIndex = dataLen > 0 ? dataLen - 1 : 0;
-
-                assetAnnotations[activeAssetTicker][id] = {
-                    type: 'line', xMin: xIndex, xMax: xIndex,
-                    borderColor: profitColor, borderWidth: 2, borderDash: [4, 4],
-                    label: { display: true, content: `SELL: ${profitPercent}%`, backgroundColor: profitColor, color: '#fff', position: 'end' }
-                };
-
-                showToast(`VENDA: $${activeAssetTicker} liquidada. P&L: ${profitPercent}%`, profitPercent >= 0 ? 'normal' : 'sell');
-                lastBuyPrices[activeAssetTicker] = null;
-            }
-
-            updateChartDisplay();
-        }
-
-        function predictCustomTime() {
-            const targetTime = document.getElementById('target-time').value;
-            const resultBox = document.getElementById('predict-result');
-            
-            if (!targetTime) {
-                resultBox.style.display = 'block'; resultBox.style.color = 'var(--alert-red)'; resultBox.innerHTML = 'Insira um horário.';
-                return;
-            }
-
-            let assetInfo = marketApi.getAssetInfo(activeAssetTicker);
-            const predictedMargin = ((assetInfo.trendBias - 1) * 100 * (Math.random() * 1.5 + 0.5)).toFixed(2);
-            const color = predictedMargin >= 0 ? 'var(--neptune-cyan)' : 'var(--alert-red)';
-            const icon = predictedMargin >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
-
-            resultBox.style.display = 'block'; resultBox.style.color = color;
-            resultBox.innerHTML = `<strong>Scan IA às ${targetTime}:</strong> Var. est.: <i class="fas ${icon}"></i> <strong>${predictedMargin}%</strong>.`;
-        }
-
-        // Utils
+        // ==========================================
+        // UI HELPERS
+        // ==========================================
         function openModal(id) { document.getElementById(id).classList.add('active'); }
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-        function showToast(message, type = 'normal') {
+        function doLogin() {
+            showToast("Autenticação realizada com sucesso.", "success");
+            closeModal('loginModal');
+        }
+        function showToast(msg, type) {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            toast.className = `toast ${type === 'sell' ? 'sell-alert' : ''}`;
-            toast.innerHTML = `${type === 'sell' ? '<i class="fas fa-exclamation-triangle"></i>' : '<i class="fas fa-check-circle"></i>'} <div>${message}</div>`;
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> <span>${msg}</span>`;
             container.appendChild(toast);
-            setTimeout(() => { toast.remove(); }, 4000);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(()=>toast.remove(), 300); }, 3000);
         }
 
-        // INIT
-        renderGlobalStats();
-        renderMarketTable();
-        selectAssetForTrade(activeAssetTicker);
+        // Inicializa o Sistema
+        const app = new AtlasTerminal();
+        window.executeTrade = (type) => app.executeTrade(type);
     </script>
 </body>
 </html>
