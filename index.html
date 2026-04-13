@@ -294,12 +294,12 @@
             const dot = document.getElementById('status-dot');
             const txt = document.getElementById('status-text');
             try {
-                dot.classList.remove('online'); dot.style.background = 'yellow';
-                txt.innerText = "Sincronizando com Supabase...";
+                dot.classList.remove('online'); 
+                dot.style.background = 'yellow';
+                txt.innerText = "Sincronizando...";
 
                 const ids = ASSETS.map(a => a.id).join(',');
                 
-                // Agora enviamos a chave de segurança para o Supabase
                 const res = await fetch(`${SUPABASE_URL}?universeIds=${ids}`, {
                     method: 'GET',
                     headers: {
@@ -309,15 +309,20 @@
                     }
                 });
 
-                if (!res.ok) {
-                    const errorData = await res.json();
-                    throw new Error(errorData.error || `HTTP ${res.status}`);
-                }
-                
                 const json = await res.json();
+
+                // Tratamento específico para o erro 429 (Rate Limit)
+                if (res.status === 429 || (json.error && json.error.includes('429'))) {
+                    dot.style.background = 'orange';
+                    txt.innerText = "Limite da API (Cooldown)... Mantendo dados atuais.";
+                    console.warn("Rate limit atingido. Tentaremos novamente em breve.");
+                    return; // Sai da função sem quebrar o gráfico atual
+                }
+
+                if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+                
                 const realData = json.data;
 
-                // Atualiza os Targets com os dados reais
                 if (realData && realData.length > 0) {
                     realData.forEach(game => {
                         const data = this.marketData[game.id];
@@ -331,12 +336,16 @@
                     });
                 }
 
-                dot.classList.add('online'); dot.style.background = '';
-                txt.innerText = "API Conectada (Live)";
+                dot.classList.add('online'); 
+                dot.style.background = '';
+                // Se veio do cache do backend, avisa no status sutilmente
+                txt.innerText = json.cached ? "API Conectada (Em Cache)" : "API Conectada (Live)";
+                
             } catch (error) {
                 console.error("API Error:", error);
-                dot.classList.remove('online'); dot.style.background = 'var(--trade-sell)';
-                txt.innerText = "Erro: " + error.message;
+                dot.classList.remove('online'); 
+                dot.style.background = 'var(--trade-sell)';
+                txt.innerText = "Falha na conexão. Retentando...";
             }
         }
 
