@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atlas Studios | Roblox Market Terminal</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #050b14;
+            --bg-panel: #0a1526;
+            --neptune-cyan: #00f5d4;
+            --neptune-blue: #00bbf9;
+            --alert-red: #ff0054;
+            --text-main: #e0e6ed;
+            --text-muted: #7b8c9e;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        body { background-color: var(--bg-deep); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+
+        /* Sidebar */
+        .sidebar { width: 250px; background: var(--bg-panel); border-right: 1px solid rgba(0, 245, 212, 0.1); padding: 20px; display: flex; flex-direction: column; }
+        .logo { font-size: 1.5rem; font-weight: bold; color: var(--neptune-cyan); margin-bottom: 30px; text-transform: uppercase; letter-spacing: 2px; }
+        .logo span { color: var(--neptune-blue); }
+        .nav-item { padding: 12px; margin-bottom: 10px; border-radius: 8px; cursor: pointer; transition: 0.3s; color: var(--text-muted); }
+        .nav-item:hover, .nav-item.active { background: rgba(0, 245, 212, 0.1); color: var(--neptune-cyan); }
+
+        /* Main Content */
+        .main { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+        
+        /* Header Stats */
+        .header-stats { display: flex; gap: 20px; }
+        .stat-card { background: var(--bg-panel); padding: 15px; border-radius: 10px; flex: 1; border: 1px solid rgba(0, 187, 249, 0.1); }
+        .stat-title { font-size: 0.8rem; color: var(--text-muted); }
+        .stat-value { font-size: 1.5rem; font-weight: bold; margin-top: 5px; color: var(--text-main); }
+        .trend-up { color: var(--neptune-cyan); font-size: 0.9rem; }
+        .trend-down { color: var(--alert-red); font-size: 0.9rem; }
+
+        /* Chart Area */
+        .chart-container { background: var(--bg-panel); padding: 20px; border-radius: 10px; flex: 1; border: 1px solid rgba(0, 245, 212, 0.1); }
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .timeframes button { background: transparent; border: 1px solid var(--text-muted); color: var(--text-muted); padding: 5px 15px; border-radius: 5px; cursor: pointer; margin-left: 5px; transition: 0.3s; }
+        .timeframes button.active, .timeframes button:hover { background: var(--neptune-blue); color: #fff; border-color: var(--neptune-blue); }
+
+        /* Trading Panel */
+        .trading-panel { display: flex; gap: 20px; }
+        .trade-box { background: var(--bg-panel); padding: 20px; border-radius: 10px; flex: 1; border: 1px solid rgba(0, 245, 212, 0.2); }
+        .ai-prediction { font-size: 0.9rem; padding: 10px; background: rgba(0, 187, 249, 0.05); border-left: 3px solid var(--neptune-blue); margin-bottom: 15px; }
+        
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 1rem; }
+        .btn-buy { background: var(--neptune-cyan); color: var(--bg-deep); }
+        .btn-buy:hover { box-shadow: 0 0 15px var(--neptune-cyan); }
+        .btn-sell { background: var(--alert-red); color: white; margin-top: 10px; }
+        .btn-sell:hover { box-shadow: 0 0 15px var(--alert-red); }
+
+        /* Notifications / Toast */
+        #toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 9999; }
+        .toast { background: var(--bg-panel); border-left: 4px solid var(--neptune-cyan); padding: 15px 20px; border-radius: 5px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); color: #fff; animation: slideIn 0.3s ease-out; display: flex; align-items: center; gap: 15px; }
+        .toast.sell-alert { border-left-color: var(--alert-red); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="logo">Atlas <span>Studios</span></div>
+        <div class="nav-item active"><i class="fas fa-chart-line"></i> Market Terminal</div>
+        <div class="nav-item"><i class="fas fa-robot"></i> AI Predictions</div>
+        <div class="nav-item"><i class="fas fa-wallet"></i> My Portfolio</div>
+        <div class="nav-item"><i class="fas fa-cog"></i> Settings</div>
+    </div>
+
+    <div class="main">
+        <div class="header-stats">
+            <div class="stat-card">
+                <div class="stat-title">Blox Fruits ($BLXF) - CCU</div>
+                <div class="stat-value" id="blxf-val">845,230</div>
+                <div class="trend-up"><i class="fas fa-arrow-up"></i> +4.2% (1H)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Brookhaven ($BRKH) - CCU</div>
+                <div class="stat-value" id="brkh-val">620,100</div>
+                <div class="trend-up"><i class="fas fa-arrow-up"></i> +1.1% (1H)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Blade Ball ($BLDE) - CCU</div>
+                <div class="stat-value" id="blde-val">85,400</div>
+                <div class="trend-down"><i class="fas fa-arrow-down"></i> -12.5% (1H)</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Live Asset Tracker & AI Forecast</h3>
+                <div class="timeframes">
+                    <button class="active">1M</button>
+                    <button>1H</button>
+                    <button>1D</button>
+                    <button>1W</button>
+                </div>
+            </div>
+            <canvas id="marketChart" height="80"></canvas>
+        </div>
+
+        <div class="trading-panel">
+            <div class="trade-box">
+                <h3>Trade: Blox Fruits ($BLXF)</h3>
+                <div class="ai-prediction">
+                    <strong><i class="fas fa-brain"></i> Atlas AI Analysis:</strong> Tendência de ALTA. Fluxo de jogadores escolares entrando. 
+                    <br><em>Melhor hora de compra:</em> Agora.
+                    <br><em>Alvo de Venda Estimado:</em> +15 minutos.
+                </div>
+                <button class="btn btn-buy" onclick="executeTrade('BLXF')">COMPRAR POSIÇÃO (ENTER)</button>
+            </div>
+            <div class="trade-box">
+                <h3>Trade: Blade Ball ($BLDE)</h3>
+                <div class="ai-prediction">
+                    <strong><i class="fas fa-brain"></i> Atlas AI Analysis:</strong> Tendência de BAIXA. Forte exaustão de tendência. 
+                    <br><em>Melhor hora de venda:</em> Imediata.
+                </div>
+                <button class="btn btn-sell" onclick="showToast('Posição $BLDE liquidada com sucesso.', 'info')">VENDER POSIÇÃO (EXIT)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        // Configuração do Gráfico (Chart.js)
+        const ctx = document.getElementById('marketChart').getContext('2d');
+        Chart.defaults.color = '#7b8c9e';
+        Chart.defaults.borderColor = 'rgba(123, 140, 158, 0.1)';
+
+        const marketChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['14:00', '14:10', '14:20', '14:30', '14:40', '14:50', '15:00 (Agora)', '+10m (AI)', '+20m (AI)'],
+                datasets: [
+                    {
+                        label: '$BLXF Real',
+                        data: [600, 620, 650, 700, 750, 800, 845, null, null],
+                        borderColor: '#00f5d4',
+                        tension: 0.4,
+                        borderWidth: 2
+                    },
+                    {
+                        label: '$BLXF AI Forecast',
+                        data: [null, null, null, null, null, null, 845, 890, 920],
+                        borderColor: '#00f5d4',
+                        borderDash: [5, 5],
+                        tension: 0.4,
+                        borderWidth: 2
+                    },
+                    {
+                        label: '$BLDE Real',
+                        data: [120, 115, 110, 105, 95, 90, 85, null, null],
+                        borderColor: '#ff0054',
+                        tension: 0.4,
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'top' } },
+                scales: { y: { beginAtZero: false } }
+            }
+        });
+
+        // Sistema de Notificações
+        function showToast(message, type = 'normal') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === 'sell' ? 'sell-alert' : ''}`;
+            
+            const icon = type === 'sell' ? '<i class="fas fa-exclamation-triangle"></i>' : '<i class="fas fa-check-circle"></i>';
+            toast.innerHTML = `${icon} <div>${message}</div>`;
+            
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 5000);
+        }
+
+        // Lógica de Trading e Timer de Venda
+        function executeTrade(asset) {
+            showToast(`Ordem de COMPRA executada para $${asset}. IA monitorando...`, 'normal');
+            
+            // Simula a IA detectando o pico e avisando para vender (Timer de 8 segundos para demo)
+            setTimeout(() => {
+                showToast(`ALERTA DE IA: O volume de $${asset} atingiu o pico previsto! VENDA AGORA para maximizar engajamento.`, 'sell');
+            }, 8000);
+        }
+
+        // Simulação de WebSocket / Polling de API Real
+        // Consumo real do Backend da Atlas Studios
+async function fetchRealMarketData() {
+    try {
+        const response = await fetch('http://localhost:3000/api/market-data');
+        if (!response.ok) throw new Error('Falha ao conectar com o servidor da Atlas.');
+        
+        const data = await response.json();
+
+        // Atualiza a UI com dados REAIS e Precisos
+        document.getElementById('blxf-val').innerText = data.BLXF.ccu.toLocaleString('en-US');
+        document.getElementById('brkh-val').innerText = data.BRKH.ccu.toLocaleString('en-US');
+        document.getElementById('blde-val').innerText = data.BLDE.ccu.toLocaleString('en-US');
+
+        // Atualiza o gráfico com a previsão gerada pelo servidor
+        // (Lógica de inserção no Chart.js iria aqui baseada no data.BLXF.trend.forecast)
+
+        // Lógica de Alertas Automatizados baseada em dados reais
+        if (data.BLDE.trend.action === 'SELL_SOON') {
+            showToast(`ALERTA: Forte alta detectada em Blade Ball! Prepare para liquidar.`, 'sell');
+        }
+
+    } catch (error) {
+        console.error(error);
+        showToast('Aviso: Conexão com o mercado instável. Usando dados armazenados em cache local.', 'sell');
+    }
+}
+
+// Atualiza o terminal a cada 30 segundos (evita sobrecarga no frontend e alinha com o cache do backend)
+fetchRealMarketData();
+setInterval(fetchRealMarketData, 30000);
+    </script>
+</body>
+</html>
