@@ -10,6 +10,7 @@
         :root {
             --bg-deep: #050b14;
             --bg-panel: #0a1526;
+            --bg-modal: rgba(5, 11, 20, 0.85);
             --neptune-cyan: #00f5d4;
             --neptune-blue: #00bbf9;
             --alert-red: #ff0054;
@@ -22,14 +23,16 @@
         body { background-color: var(--bg-deep); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
 
         /* Sidebar */
-        .sidebar { width: 250px; background: var(--bg-panel); border-right: 1px solid rgba(0, 245, 212, 0.1); padding: 20px; display: flex; flex-direction: column; }
+        .sidebar { width: 250px; background: var(--bg-panel); border-right: 1px solid rgba(0, 245, 212, 0.1); padding: 20px; display: flex; flex-direction: column; z-index: 10; }
         .logo { font-size: 1.5rem; font-weight: bold; color: var(--neptune-cyan); margin-bottom: 30px; text-transform: uppercase; letter-spacing: 2px; }
         .logo span { color: var(--neptune-blue); }
         .nav-item { padding: 12px; margin-bottom: 10px; border-radius: 8px; cursor: pointer; transition: 0.3s; color: var(--text-muted); }
         .nav-item:hover, .nav-item.active { background: rgba(0, 245, 212, 0.1); color: var(--neptune-cyan); }
+        .login-btn-side { margin-top: auto; background: transparent; border: 1px solid var(--neptune-cyan); color: var(--neptune-cyan); padding: 10px; border-radius: 5px; cursor: pointer; text-align: center; transition: 0.3s; }
+        .login-btn-side:hover { background: var(--neptune-cyan); color: var(--bg-deep); }
 
         /* Main Content */
-        .main { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+        .main { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; position: relative; }
         
         /* Header Stats */
         .header-stats { display: flex; gap: 20px; }
@@ -40,15 +43,17 @@
         .trend-down { color: var(--alert-red); font-size: 0.9rem; }
 
         /* Chart Area */
-        .chart-container { background: var(--bg-panel); padding: 20px; border-radius: 10px; flex: 1; border: 1px solid rgba(0, 245, 212, 0.1); }
+        .chart-container { background: var(--bg-panel); padding: 20px; border-radius: 10px; flex: 1; border: 1px solid rgba(0, 245, 212, 0.1); display: flex; flex-direction: column; }
         .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .timeframes button { background: transparent; border: 1px solid var(--text-muted); color: var(--text-muted); padding: 5px 15px; border-radius: 5px; cursor: pointer; margin-left: 5px; transition: 0.3s; }
+        .timeframes { display: flex; gap: 5px; }
+        .timeframes button { background: transparent; border: 1px solid var(--text-muted); color: var(--text-muted); padding: 5px 15px; border-radius: 5px; cursor: pointer; transition: 0.3s; }
         .timeframes button.active, .timeframes button:hover { background: var(--neptune-blue); color: #fff; border-color: var(--neptune-blue); }
+        .canvas-wrapper { flex: 1; position: relative; min-height: 250px; }
 
         /* Trading Panel */
         .trading-panel { display: flex; gap: 20px; }
         .trade-box { background: var(--bg-panel); padding: 20px; border-radius: 10px; flex: 1; border: 1px solid rgba(0, 245, 212, 0.2); }
-        .ai-prediction { font-size: 0.9rem; padding: 10px; background: rgba(0, 187, 249, 0.05); border-left: 3px solid var(--neptune-blue); margin-bottom: 15px; }
+        .ai-prediction { font-size: 0.9rem; padding: 10px; background: rgba(0, 187, 249, 0.05); border-left: 3px solid var(--neptune-blue); margin-bottom: 15px; transition: 0.3s; }
         
         .btn { width: 100%; padding: 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 1rem; }
         .btn-buy { background: var(--neptune-cyan); color: var(--bg-deep); }
@@ -56,7 +61,28 @@
         .btn-sell { background: var(--alert-red); color: white; margin-top: 10px; }
         .btn-sell:hover { box-shadow: 0 0 15px var(--alert-red); }
 
-        /* Notifications / Toast */
+        /* Modals */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-modal); backdrop-filter: blur(5px); z-index: 1000; justify-content: center; align-items: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: var(--bg-panel); padding: 30px; border-radius: 10px; width: 400px; border: 1px solid var(--neptune-blue); position: relative; }
+        .close-modal { position: absolute; top: 15px; right: 15px; cursor: pointer; color: var(--text-muted); font-size: 1.2rem; }
+        .close-modal:hover { color: var(--alert-red); }
+        .modal h2 { margin-bottom: 20px; color: var(--neptune-cyan); }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 0.9rem; }
+        .input-group input { width: 100%; padding: 10px; background: var(--bg-deep); border: 1px solid rgba(123, 140, 158, 0.3); color: white; border-radius: 5px; outline: none; }
+        .input-group input:focus { border-color: var(--neptune-blue); }
+
+        /* Toggle Switch */
+        .switch-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background: var(--bg-deep); border-radius: 5px; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--text-muted); transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--neptune-cyan); }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        /* Notifications */
         #toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 9999; }
         .toast { background: var(--bg-panel); border-left: 4px solid var(--neptune-cyan); padding: 15px 20px; border-radius: 5px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); color: #fff; animation: slideIn 0.3s ease-out; display: flex; align-items: center; gap: 15px; }
         .toast.sell-alert { border-left-color: var(--alert-red); }
@@ -67,10 +93,11 @@
 
     <div class="sidebar">
         <div class="logo">Atlas <span>Studios</span></div>
-        <div class="nav-item active"><i class="fas fa-chart-line"></i> Market Terminal</div>
-        <div class="nav-item"><i class="fas fa-robot"></i> AI Predictions</div>
-        <div class="nav-item"><i class="fas fa-wallet"></i> My Portfolio</div>
-        <div class="nav-item"><i class="fas fa-cog"></i> Settings</div>
+        <div class="nav-item active" onclick="switchTab('terminal')"><i class="fas fa-chart-line"></i> Market Terminal</div>
+        <div class="nav-item" onclick="openModal('portfolioModal')"><i class="fas fa-wallet"></i> My Portfolio</div>
+        <div class="nav-item" onclick="openModal('settingsModal')"><i class="fas fa-cog"></i> Settings</div>
+        
+        <div class="login-btn-side" onclick="openModal('loginModal')"><i class="fas fa-user"></i> Login / Register</div>
     </div>
 
     <div class="main">
@@ -95,20 +122,22 @@
         <div class="chart-container">
             <div class="chart-header">
                 <h3>Live Asset Tracker & AI Forecast</h3>
-                <div class="timeframes">
-                    <button class="active">1M</button>
-                    <button>1H</button>
-                    <button>1D</button>
-                    <button>1W</button>
+                <div class="timeframes" id="timeframe-buttons">
+                    <button class="active" data-time="1M">1M</button>
+                    <button data-time="1H">1H</button>
+                    <button data-time="1D">1D</button>
+                    <button data-time="1W">1W</button>
                 </div>
             </div>
-            <canvas id="marketChart" height="80"></canvas>
+            <div class="canvas-wrapper">
+                <canvas id="marketChart"></canvas>
+            </div>
         </div>
 
         <div class="trading-panel">
             <div class="trade-box">
                 <h3>Trade: Blox Fruits ($BLXF)</h3>
-                <div class="ai-prediction">
+                <div class="ai-prediction" id="ai-pred-blxf">
                     <strong><i class="fas fa-brain"></i> Atlas AI Analysis:</strong> Tendência de ALTA. Fluxo de jogadores escolares entrando. 
                     <br><em>Melhor hora de compra:</em> Agora.
                     <br><em>Alvo de Venda Estimado:</em> +15 minutos.
@@ -117,12 +146,69 @@
             </div>
             <div class="trade-box">
                 <h3>Trade: Blade Ball ($BLDE)</h3>
-                <div class="ai-prediction">
+                <div class="ai-prediction" id="ai-pred-blde">
                     <strong><i class="fas fa-brain"></i> Atlas AI Analysis:</strong> Tendência de BAIXA. Forte exaustão de tendência. 
                     <br><em>Melhor hora de venda:</em> Imediata.
                 </div>
                 <button class="btn btn-sell" onclick="showToast('Posição $BLDE liquidada com sucesso.', 'info')">VENDER POSIÇÃO (EXIT)</button>
             </div>
+        </div>
+    </div>
+
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <i class="fas fa-times close-modal" onclick="closeModal('loginModal')"></i>
+            <h2>Atlas Login</h2>
+            <div class="input-group">
+                <label>Email</label>
+                <input type="email" placeholder="user@atlas.com">
+            </div>
+            <div class="input-group">
+                <label>Password</label>
+                <input type="password" placeholder="••••••••">
+            </div>
+            <button class="btn btn-buy" onclick="loginAction()">Sign In</button>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <i class="fas fa-times close-modal" onclick="closeModal('settingsModal')"></i>
+            <h2>Settings & Algorithms</h2>
+            
+            <div class="switch-wrapper">
+                <span>Ativar Previsões IA no Gráfico</span>
+                <label class="switch">
+                    <input type="checkbox" id="toggleAiChart" checked onchange="toggleAI()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="switch-wrapper">
+                <span>Dicas de Trading (Painel)</span>
+                <label class="switch">
+                    <input type="checkbox" id="toggleAiTips" checked onchange="toggleAITips()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="switch-wrapper">
+                <span>Alertas Sonoros</span>
+                <label class="switch">
+                    <input type="checkbox" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div id="portfolioModal" class="modal">
+        <div class="modal-content" style="width: 500px;">
+            <i class="fas fa-times close-modal" onclick="closeModal('portfolioModal')"></i>
+            <h2>My Portfolio</h2>
+            <p style="color: var(--text-muted); margin-bottom: 20px;">Você precisa fazer login para visualizar suas posições ativas e histórico de trades reais.</p>
+            <div style="background: var(--bg-deep); padding: 15px; border-radius: 5px; border-left: 3px solid var(--alert-red);">
+                <strong>Saldo de Operação:</strong> Acesso Restrito
+            </div>
+            <button class="btn btn-buy" style="margin-top: 20px;" onclick="closeModal('portfolioModal'); openModal('loginModal');">Ir para Login</button>
         </div>
     </div>
 
@@ -134,41 +220,93 @@
         Chart.defaults.color = '#7b8c9e';
         Chart.defaults.borderColor = 'rgba(123, 140, 158, 0.1)';
 
+        // Banco de dados simulado para os botões de tempo
+        const chartDataSets = {
+            '1M': {
+                labels: ['14:55', '14:56', '14:57', '14:58', '14:59', '15:00', '+1m', '+2m', '+3m'],
+                blxf: [820, 825, 830, 838, 842, 845, null, null, null],
+                blxfAi: [null, null, null, null, null, 845, 848, 852, 855],
+                blde: [92, 90, 89, 88, 86, 85, null, null, null]
+            },
+            '1H': {
+                labels: ['14:00', '14:10', '14:20', '14:30', '14:40', '14:50', '15:00', '+10m', '+20m'],
+                blxf: [600, 620, 650, 700, 750, 800, 845, null, null],
+                blxfAi: [null, null, null, null, null, null, 845, 890, 920],
+                blde: [120, 115, 110, 105, 95, 90, 85, null, null]
+            },
+            '1D': {
+                labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', 'Hoje', '+4h', '+8h'],
+                blxf: [450, 200, 280, 500, 750, 850, 845, null, null],
+                blxfAi: [null, null, null, null, null, null, 845, 700, 400],
+                blde: [65, 20, 35, 70, 100, 120, 85, null, null]
+            },
+            '1W': {
+                labels: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom', 'Próx Seg', 'Próx Ter'],
+                blxf: [750, 720, 780, 800, 950, 1100, 1050, null, null],
+                blxfAi: [null, null, null, null, null, null, 1050, 740, 730],
+                blde: [90, 85, 88, 95, 130, 150, 140, null, null]
+            }
+        };
+
         const marketChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: ['14:00', '14:10', '14:20', '14:30', '14:40', '14:50', '15:00 (Agora)', '+10m (AI)', '+20m (AI)'],
+                labels: chartDataSets['1H'].labels,
                 datasets: [
-                    {
-                        label: '$BLXF Real',
-                        data: [600, 620, 650, 700, 750, 800, 845, null, null],
-                        borderColor: '#00f5d4',
-                        tension: 0.4,
-                        borderWidth: 2
-                    },
-                    {
-                        label: '$BLXF AI Forecast',
-                        data: [null, null, null, null, null, null, 845, 890, 920],
-                        borderColor: '#00f5d4',
-                        borderDash: [5, 5],
-                        tension: 0.4,
-                        borderWidth: 2
-                    },
-                    {
-                        label: '$BLDE Real',
-                        data: [120, 115, 110, 105, 95, 90, 85, null, null],
-                        borderColor: '#ff0054',
-                        tension: 0.4,
-                        borderWidth: 2
-                    }
+                    { label: '$BLXF Real', data: chartDataSets['1H'].blxf, borderColor: '#00f5d4', tension: 0.4, borderWidth: 2 },
+                    { label: '$BLXF AI Forecast', data: chartDataSets['1H'].blxfAi, borderColor: '#00f5d4', borderDash: [5, 5], tension: 0.4, borderWidth: 2 },
+                    { label: '$BLDE Real', data: chartDataSets['1H'].blde, borderColor: '#ff0054', tension: 0.4, borderWidth: 2 }
                 ]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: { legend: { position: 'top' } },
                 scales: { y: { beginAtZero: false } }
             }
         });
+
+        // Lógica de Troca de Tempo (Timeframes)
+        const timeButtons = document.querySelectorAll('.timeframes button');
+        timeButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                timeButtons.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                const time = e.target.getAttribute('data-time');
+                const newData = chartDataSets[time];
+                
+                marketChart.data.labels = newData.labels;
+                marketChart.data.datasets[0].data = newData.blxf;
+                marketChart.data.datasets[1].data = newData.blxfAi;
+                marketChart.data.datasets[2].data = newData.blde;
+                marketChart.update();
+            });
+        });
+
+        // Controle de Configurações da IA
+        function toggleAI() {
+            const isChecked = document.getElementById('toggleAiChart').checked;
+            marketChart.data.datasets[1].hidden = !isChecked; // Oculta a linha tracejada
+            marketChart.update();
+        }
+
+        function toggleAITips() {
+            const isChecked = document.getElementById('toggleAiTips').checked;
+            const preds = document.querySelectorAll('.ai-prediction');
+            preds.forEach(el => el.style.display = isChecked ? 'block' : 'none');
+        }
+
+        // Sistema de Modais
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        function loginAction() {
+            closeModal('loginModal');
+            showToast('Bem-vindo ao terminal, Operador.', 'info');
+            document.querySelector('.login-btn-side').innerHTML = '<i class="fas fa-user-check"></i> Connected';
+            document.querySelector('.login-btn-side').style.background = 'var(--neptune-cyan)';
+            document.querySelector('.login-btn-side').style.color = 'var(--bg-deep)';
+        }
 
         // Sistema de Notificações
         function showToast(message, type = 'normal') {
@@ -183,47 +321,31 @@
             setTimeout(() => { toast.remove(); }, 5000);
         }
 
-        // Lógica de Trading e Timer de Venda
+        // Lógica de Trading
         function executeTrade(asset) {
             showToast(`Ordem de COMPRA executada para $${asset}. IA monitorando...`, 'normal');
-            
-            // Simula a IA detectando o pico e avisando para vender (Timer de 8 segundos para demo)
             setTimeout(() => {
-                showToast(`ALERTA DE IA: O volume de $${asset} atingiu o pico previsto! VENDA AGORA para maximizar engajamento.`, 'sell');
+                showToast(`ALERTA DE IA: O volume de $${asset} atingiu o pico! VENDA AGORA.`, 'sell');
             }, 8000);
         }
 
-        // Simulação de WebSocket / Polling de API Real
-        // Consumo real do Backend da Atlas Studios
-async function fetchRealMarketData() {
-    try {
-        const response = await fetch('http://localhost:3000/api/market-data');
-        if (!response.ok) throw new Error('Falha ao conectar com o servidor da Atlas.');
-        
-        const data = await response.json();
-
-        // Atualiza a UI com dados REAIS e Precisos
-        document.getElementById('blxf-val').innerText = data.BLXF.ccu.toLocaleString('en-US');
-        document.getElementById('brkh-val').innerText = data.BRKH.ccu.toLocaleString('en-US');
-        document.getElementById('blde-val').innerText = data.BLDE.ccu.toLocaleString('en-US');
-
-        // Atualiza o gráfico com a previsão gerada pelo servidor
-        // (Lógica de inserção no Chart.js iria aqui baseada no data.BLXF.trend.forecast)
-
-        // Lógica de Alertas Automatizados baseada em dados reais
-        if (data.BLDE.trend.action === 'SELL_SOON') {
-            showToast(`ALERTA: Forte alta detectada em Blade Ball! Prepare para liquidar.`, 'sell');
+        // Consumo do Backend (Com Fallback para não quebrar a UI se o servidor Node não estiver rodando localmente)
+        async function fetchRealMarketData() {
+            try {
+                const response = await fetch('http://localhost:3000/api/market-data');
+                if (!response.ok) throw new Error('Servidor off');
+                const data = await response.json();
+                document.getElementById('blxf-val').innerText = data.BLXF.ccu.toLocaleString('en-US');
+                document.getElementById('brkh-val').innerText = data.BRKH.ccu.toLocaleString('en-US');
+                document.getElementById('blde-val').innerText = data.BLDE.ccu.toLocaleString('en-US');
+            } catch (error) {
+                // Silencioso: Mantém os valores visuais estáticos caso a API não esteja ligada
+                console.log("Aguardando inicialização do Backend na porta 3000...");
+            }
         }
 
-    } catch (error) {
-        console.error(error);
-        showToast('Aviso: Conexão com o mercado instável. Usando dados armazenados em cache local.', 'sell');
-    }
-}
-
-// Atualiza o terminal a cada 30 segundos (evita sobrecarga no frontend e alinha com o cache do backend)
-fetchRealMarketData();
-setInterval(fetchRealMarketData, 30000);
+        fetchRealMarketData();
+        setInterval(fetchRealMarketData, 30000);
     </script>
 </body>
 </html>
